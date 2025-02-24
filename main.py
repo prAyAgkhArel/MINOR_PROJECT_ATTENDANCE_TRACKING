@@ -91,23 +91,55 @@ def register():
 
     return render_template("register.html")
 
+
 @app.route('/login', methods=['POST', 'GET'])
 def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        # Check if the student exists
+        student = db.session.execute(db.select(Student).where(Student.email == email)).scalars().first()
+
+        if student:
+            # Verify the password for student
+            if check_password_hash(student.password, password):
+                flash("Login successful!", "success")
+                return redirect(url_for('student', name=student.name))
+            else:
+                flash("Incorrect password.", "danger")
+                return redirect(url_for('login'))
+
+        # Check if the admin exists
+        admin = db.session.execute(db.select(Admin).where(Admin.email == email)).scalars().first()
+
+        if admin:
+            # Verify the password for admin
+            if check_password_hash(admin.password, password):
+                flash("Admin login successful!", "success")
+                return redirect(url_for('admin', name=admin.name))
+            else:
+                flash("Incorrect password.", "danger")
+                return redirect(url_for('login'))
+
+        # If no user found with the given email
+        flash("No user found with this email address.", "danger")
+        return redirect(url_for('login'))
+
     return render_template('login.html')
 
 
+@app.route('/admin/<name>')
+def admin(name):
+    return render_template('admin_dashboard.html', name=name)
 
+@app.route('/student/<name>')
+def student(name):
+    return render_template('user_dashboard.html', name=name)
 
-
-
-@app.route('/admin')
-def admin():
-    return render_template('admin_dashboard.html')
-
-@app.route('/user')
-def user():
-    return render_template('user_dashboard.html')
-
+@app.route('/teacher/<name>')
+def teacher(name):
+    return render_template('techer_dashboard.html', name=name)
 
 @app.route('/logout')
 def logout():

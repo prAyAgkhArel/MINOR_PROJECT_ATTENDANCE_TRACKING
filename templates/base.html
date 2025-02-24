@@ -45,9 +45,22 @@
                 <div class="alert alert-{{ category }}">
                     {{ message }}
                 </div>
+
             {% endfor %}
         {% endif %}
     {% endwith %}
     {% block content %} {% endblock %}
+
+  <script>
+  if (document.querySelectorAll('.alert').length > 0) {
+    setTimeout(function() {
+      const flashMessages = document.querySelectorAll('.alert');
+      flashMessages.forEach(function(msg) {
+        msg.style.display = 'none';
+      });
+    }, 3000);  // 3000 milliseconds = 3 seconds
+  }
+</script>
+
   </body>
 </html>
