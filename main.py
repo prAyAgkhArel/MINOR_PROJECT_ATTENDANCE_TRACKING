@@ -17,17 +17,40 @@ app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///" + os.path.join(basedir, 'us
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
-# CREATE TABLE
+# CREATE TABLE student
 class Student(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String(100), nullable=False)
     name: Mapped[str] = mapped_column(String(1000), nullable=False)
-    roll_no: Mapped[str] = mapped_column(String(100), nullable=False)
+    roll_no: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+
+#create table teacher
+class Teacher(db.Model):
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(1000), nullable=False)
+
+#create table admin
+class Admin(db.Model):
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(1000), nullable=False)
+
+
+
 
 
 with app.app_context():
     db.create_all()
+
+    # ADD ADMIN
+    # hashed_password = generate_password_hash('@admin123123', method='pbkdf2:sha256', salt_length=8)
+    # new_admin = Admin(email='hiteshlabh307@gmail.com', password=hashed_password, name='Hitesh')
+    # db.session.add(new_admin)
+    # db.session.commit()
 
 
 @app.route('/')
@@ -47,12 +70,13 @@ def register():
         password = request.form.get('password')
         roll_no = request.form.get('rollno')
 
-        # Check if the student already exists by roll number in the Student table
-        existing_student = Student.query.filter_by(roll_no=roll_no).first()
 
+        # Check if the student already exists by roll number in the Student table
+        existing_student = db.session.execute(db.select(Student).where(Student.roll_no == roll_no)).first()
         if existing_student:
             flash("This roll number is already registered. Please log in.", "warning")
             return redirect(url_for('login'))  # Redirect to login page or stay on register page
+
 
         # Hash the password
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=8)
@@ -62,36 +86,17 @@ def register():
             new_student = Student(email=email, password=hashed_password, name=name, roll_no=roll_no)
             db.session.add(new_student)
             db.session.commit()
-
         flash("Registration successful!", "success")
         return redirect(url_for('home'))
 
     return render_template("register.html")
 
-
-# @app.route('/login', methods=['POST', 'GET'])
-# def login():
-#     if request.method == 'POST':
-#         email_from_form = request.form.get('email')
-#         password_from_form = request.form.get('password')
-#
-#         # Get the user from the database by email
-#         with app.app_context():
-#             #select ther user such that(User.email == email_from_form), and it is stored by user(User object)
-#             user = db.session.execute(db.select(Student).where(Student.email == email_from_form)).scalar_one_or_none()
-#
-#             #user stores none if no user with the email entered is found
-#             if user and check_password_hash(user.password, password_from_form):
-#                 return render_template('secrets.html', name=user.name)
-#             else:
-#                 flash("Invalid email or password!", "danger")
-#                 return redirect(url_for('login'))
-#
-#     return render_template("login.html")
-
-@app.route('/login')
+@app.route('/login', methods=['POST', 'GET'])
 def login():
-    pass
+    return render_template('login.html')
+
+
+
 
 
 
