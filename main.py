@@ -55,8 +55,13 @@ with app.app_context():
 
 @app.route('/')
 def home():
-    return render_template("index.html")
-
+    if session.get('logged_in'):
+        role = session.get('user_role')
+        if role == 'admin':
+            return redirect(url_for('admin', name=session.get('user_name')))
+        elif role == 'student':
+            return redirect(url_for('student', name=session.get('user_name')))
+    return render_template("index.html", logged_in=session.get('logged_in', False))
 
 # from your_app import db
 # from your_app.models import Student  # Import the Student model
@@ -140,29 +145,24 @@ def admin(name):
     if session.get('user_role') != 'admin':
         flash("You are not authorized to access this page.", "danger")
         return redirect(url_for('home'))
-    return render_template('admin_dashboard.html', name=name)
+    return render_template('admin_dashboard.html', name=name, logged_in=session.get('logged_in', False))
 
 @app.route('/student/<name>')
 def student(name):
     if session.get('user_role') != 'student':
         flash('Your are not authorized to access this page.', category='danger')
         return redirect(url_for('home'))
-    return render_template('user_dashboard.html', name=name)
+    return render_template('student_dashboard.html', name=name, logged_in=session.get('logged_in', False))
 
 @app.route('/teacher/<name>')
 def teacher(name):
-    return render_template('techer_dashboard.html', name=name)
+    return render_template('techer_dashboard.html', name=name, logged_in=session.get('logged_in', False))
 
 @app.route('/logout')
 def logout():
     session.clear()
     flash("Logged out successfully.", "success")
     return redirect(url_for('home'))
-
-
-@app.route('/download')
-def download():
-    pass
 
 
 if __name__ == "__main__":
