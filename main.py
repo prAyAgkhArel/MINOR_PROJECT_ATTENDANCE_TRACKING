@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, url_for, redirect, flash
+from flask import Flask, render_template, request, url_for, redirect, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -105,6 +105,9 @@ def login():
             # Verify the password for student
             if check_password_hash(student.password, password):
                 flash("Login successful!", "success")
+                session['logged_in'] = True
+                session['user_role'] = 'student'
+                session['user_name'] = student.name
                 return redirect(url_for('student', name=student.name))
             else:
                 flash("Incorrect password.", "danger")
@@ -117,6 +120,9 @@ def login():
             # Verify the password for admin
             if check_password_hash(admin.password, password):
                 flash("Admin login successful!", "success")
+                session['logged_in'] = True
+                session['user_role'] = 'admin'
+                session['user_name'] = admin.name
                 return redirect(url_for('admin', name=admin.name))
             else:
                 flash("Incorrect password.", "danger")
@@ -131,10 +137,16 @@ def login():
 
 @app.route('/admin/<name>')
 def admin(name):
+    if session.get('user_role') != 'admin':
+        flash("You are not authorized to access this page.", "danger")
+        return redirect(url_for('home'))
     return render_template('admin_dashboard.html', name=name)
 
 @app.route('/student/<name>')
 def student(name):
+    if session.get('user_role') != 'student':
+        flash('Your are not authorized to access this page.', category='danger')
+        return redirect(url_for('home'))
     return render_template('user_dashboard.html', name=name)
 
 @app.route('/teacher/<name>')
@@ -143,7 +155,9 @@ def teacher(name):
 
 @app.route('/logout')
 def logout():
-    pass
+    session.clear()
+    flash("Logged out successfully.", "success")
+    return redirect(url_for('home'))
 
 
 @app.route('/download')
