@@ -1,7 +1,134 @@
-{% extends "base.html" %} {% block content %}
-<div>
-    <h1>Hello, I am admin {{ name }}</h1>
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css')}}">
+{% endblock %}
+
+{% block content %}
+<button id="sidebar-toggle" onclick="toggleSidebar()">
+    ☰
+</button>
+
+<div class="sidebar" id="sidebar">
+    <!-- Manage Students -->
+    <div class="menu-item">
+        <div class="menu-header">
+            <span>Manage Students</span>
+        </div>
+        <div class="submenu">
+            <a href="#">Add Student</a>
+            <a href="#">Update Info</a>
+        </div>
+    </div>
+
+    <!-- Manage Teachers -->
+    <div class="menu-item">
+        <div class="menu-header">
+            <span>Manage Teachers</span>
+        </div>
+        <div class="submenu">
+            <a href="#">Add Teacher</a>
+            <a href="#">Update Info</a>
+        </div>
+    </div>
+
+    <!-- Manage Routines -->
+    <div class="menu-item">
+        <div class="menu-header">
+            <span>Manage Routines</span>
+        </div>
+        <div class="submenu">
+            <a href="#">Update Routine</a>
+            <a href="#">Preview</a>
+        </div>
+    </div>
+
+    <!-- Manage Holidays -->
+    <div class="menu-item">
+        <div class="menu-header">
+            <span>Manage Holidays</span>
+        </div>
+        <div class="submenu">
+            <a href="#">Add Holiday</a>
+            <a href="#">View All</a>
+        </div>
+    </div>
 </div>
 
+<div class="main-content" id="main-content">
+    <div class="dashboard-card">
+        <h3 class="mb-4">Welcome to Admin Dashboard</h3>
 
+        <!-- Stats Cards -->
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="stats-card bg-primary text-white p-3 rounded">
+                    <h5>Total Students</h5>
+                    <h2>1,234</h2>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="stats-card bg-success text-white p-3 rounded">
+                    <h5>Total Teachers</h5>
+                    <h2>45</h2>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="stats-card bg-info text-white p-3 rounded">
+                    <h5>Today's Attendance</h5>
+                    <h2>89%</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Table -->
+        <div class="table-container">
+            <div class="table-header">
+                <h4>Recent Attendance Records</h4>
+                <div class="table-controls">
+                    <input type="date" class="form-control">
+                    <button class="btn btn-primary">
+                        Export
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Class</th>
+                            <th>Attendance</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>#001</td>
+                            <td>John Doe</td>
+                            <td>10-A</td>
+                            <td><span class="status present">Present</span></td>
+                            <td>09:00 AM</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rest of the JavaScript remains the same -->
+<script>
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('main-content');
+
+    sidebar.classList.toggle('hidden');
+    mainContent.classList.toggle('full-width');
+    sidebar.classList.toggle('active');
+}
+
+// ... rest of the JavaScript code ...
+</script>
 {% endblock %}

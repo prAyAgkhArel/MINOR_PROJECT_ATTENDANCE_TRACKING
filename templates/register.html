@@ -1,4 +1,12 @@
 {% extends "base.html" %}
+{% block extra_css %}
+<link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/styles.css')}}"
+    />
+
+{% endblock %}
+
 {% block content %}
 
 <div class="box">
