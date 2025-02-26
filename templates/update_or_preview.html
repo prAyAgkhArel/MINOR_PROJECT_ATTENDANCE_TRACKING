@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css')}}">
+{% endblock %}
+
+{% block content %}
+<button id="sidebar-toggle" onclick="toggleSidebar()">
+    ☰
+</button>
+
+<div class="sidebar" id="sidebar">
+    <!-- Manage Students -->
+    <div class="menu-item">
+        <div class="menu-header">
+            <span>Manage Students</span>
+        </div>
+        <div class="submenu">
+            <a href="{{ url_for('add_student', name = session['user_name'] ) }}">Add Student</a>
+            <a href="#">Update Info</a>
+        </div>
+    </div>
+
+    <!-- Manage Teachers -->
+    <div class="menu-item">
+        <div class="menu-header">
+            <span>Manage Teachers</span>
+        </div>
+        <div class="submenu">
+            <a href="{{ url_for('add_teacher', name = session['user_name']) }}">Add Teacher</a>
+            <a href="#">Update Info</a>
+        </div>
+    </div>
+
+
+    <div class="menu-item">
+        <div class="menu-header">
+            <span>Manage Routines</span>
+        </div>
+        <div class="submenu">
+            <a href="{{ url_for('manage_routine', name=session['user_name']) }}">Update Routine</a>
+        </div>
+    </div>
+
+
+
+    <!-- Manage Holidays -->
+    <div class="menu-item">
+        <div class="menu-header">
+            <span>Manage Holidays</span>
+        </div>
+        <div class="submenu">
+            <a href="{{ url_for('update_holiday', name=session['user_name']) }}">Update Holiday</a>
+        </div>
+    </div>
+</div>
+
+<div class="main-content" id="main-content">
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="routine-form card p-4">
+                    <h3 class="mb-4 text-center">Update Routine</h3>
+
+                    <form action="{{ url_for('update_or_preview', name=session['user_name']) }}" method="POST">
+                        <!-- Faculty Selection -->
+                        <div class="mb-4">
+                            <label for="faculty" class="form-label">Select Faculty:</label>
+                            <select class="form-select" id="faculty" name="faculty" required>
+                                <option value="">Choose Faculty...</option>
+                                <option value="BEI">BEI</option>
+                                <option value="BCT">BCT</option>
+                            </select>
+                        </div>
+
+                        <!-- Semester Selection -->
+                        <div class="mb-4">
+                            <label for="sem" class="form-label">Select Semester:</label>
+                            <select class="form-select" id="sem" name="sem" required>
+                                <option value="">Choose Semester...</option>
+                                <option value="1">I/I</option>
+                                <option value="2">I/II</option>
+                                <option value="3">II/I</option>
+                                <option value="4">II/II</option>
+                                <option value="5">III/I</option>
+                                <option value="6">III/II</option>
+                                <option value="7">IV/I</option>
+                                <option value="8">IV/II</option>
+                            </select>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="row mt-4">
+                            <div class="col-md-6 mb-2">
+                                <button type="submit" name="action" value="update" class="btn btn-primary w-100">
+                                    Update Routine
+                                </button>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <button type="submit" name="action" value="preview" class="btn btn-secondary w-100">
+                                    Preview
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('main-content');
+
+    sidebar.classList.toggle('hidden');
+    mainContent.classList.toggle('full-width');
+    sidebar.classList.toggle('active');
+}
+
+// ... rest of the JavaScript code ...
+</script>
+
+{% endblock %}

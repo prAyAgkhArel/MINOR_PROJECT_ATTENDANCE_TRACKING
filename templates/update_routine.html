@@ -1,10 +1,226 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends "base.html" %}
 
-</body>
-</html>
+{% block extra_css %}
+<!--horizontal form styling-->
+<style>
+.routine-form .row {
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.routine-form .form-select {
+    margin: 0 5px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+}
+
+.routine-form .header {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.btn-add-row {
+    margin-top: 20px;
+    background-color: #6c757d;
+    color: white;
+}
+
+/* Time dropdowns styling */
+.time-select {
+    min-width: 120px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <form method="POST" action="{{url_for('update', name=name, faculty=faculty, sem=sem)}}">
+        <!-- Header -->
+        <div class="row header mb-2">
+            <div class="col-md-2"><strong>DAY</strong></div>
+            <div class="col-md-2"><strong>FROM TIME</strong></div>
+            <div class="col-md-2"><strong>TO TIME</strong></div>
+            <div class="col-md-3"><strong>COURSE</strong></div>
+            <div class="col-md-3"><strong>TEACHER</strong></div>
+        </div>
+
+        <!-- Routine Rows -->
+        <div class="routine-rows">
+            <!-- Initial Row -->
+            <div class="row mb-3" id="row1">
+                <div class="col-md-2">
+                    <select class="form-select" name="day[]" required>
+                        <option value="">Select Day</option>
+                        <option>Sunday</option>
+                        <option>Monday</option>
+                        <option>Tuesday</option>
+                        <option>Wednesday</option>
+                        <option>Thursday</option>
+                        <option>Friday</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <select class="form-select" name="from_time[]" required>
+                        <option value="">From</option>
+                        <option>8:00 AM</option>
+                        <option>9:00 AM</option>
+                        <option>10:00 AM</option>
+                        <option>11:00 AM</option>
+                        <option>12:00 PM</option>
+                        <option>1:00 PM</option>
+                        <option>2:00 PM</option>
+                        <option>3:00 PM</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <select class="form-select" name="to_time[]" required>
+                        <option value="">To</option>
+                        <option>9:00 AM</option>
+                        <option>10:00 AM</option>
+                        <option>11:00 AM</option>
+                        <option>12:00 PM</option>
+                        <option>1:00 PM</option>
+                        <option>2:00 PM</option>
+                        <option>3:00 PM</option>
+                        <option>4:00 PM</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <select class="form-select" name="course[]" required>
+                        <option value="">Select Course</option>
+                        <option>Course 1</option>
+                        <option>Course 2</option>
+                        <option>Course 3</option>
+                        <option>Course 4</option>
+                        <option>Course 5</option>
+                        <option>Course 6</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <select class="form-select" name="teacher[]" required>
+                        <option value="">Select Teacher</option>
+                        <option>Teacher 1</option>
+                        <option>Teacher 2</option>
+                        <option>Teacher 3</option>
+                        <option>Teacher 4</option>
+                        <option>Teacher 5</option>
+                        <option>Teacher 6</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <button type="button" class="btn btn-secondary" onclick="addRow()">
+                    Add Row
+                </button>
+            </div>
+            <div class="col-md-6 text-end">
+                <button type="submit" class="btn btn-primary">
+                    Save Routine
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+// ... (keep existing timeToMinutes and variables)
+
+function isTimeOverlap(newStart, newEnd, existingIntervals) {
+    return existingIntervals.some(([existingStart, existingEnd]) => {
+        return !(newEnd <= existingStart || newStart >= existingEnd);
+    });
+}
+
+function updateTimeOptions() {
+    // Reset all options first
+    document.querySelectorAll('select').forEach(select => {
+        Array.from(select.options).forEach(option => {
+            option.disabled = false;
+            option.classList.remove('conflict');
+        });
+    });
+
+    const newTimeSlots = {};
+
+    // First pass: collect all time intervals
+    document.querySelectorAll('.row').forEach(row => {
+        const day = row.querySelector('[name="day[]"]').value;
+        const from = row.querySelector('[name="from_time[]"]').value;
+        const to = row.querySelector('[name="to_time[]"]').value;
+
+        if (day && from && to) {
+            if (!newTimeSlots[day]) newTimeSlots[day] = { intervals: [], times: new Set() };
+
+            const start = timeToMinutes(from);
+            const end = timeToMinutes(to);
+            newTimeSlots[day].intervals.push([start, end]);
+            newTimeSlots[day].times.add(from).add(to);
+        }
+    });
+
+    // Second pass: disable conflicting options
+    document.querySelectorAll('.row').forEach(row => {
+        const day = row.querySelector('[name="day[]"]').value;
+        const fromSelect = row.querySelector('[name="from_time[]"]');
+        const toSelect = row.querySelector('[name="to_time[]"]');
+        const currentFrom = timeToMinutes(fromSelect.value);
+        const currentTo = timeToMinutes(toSelect.value);
+
+        if (day && newTimeSlots[day]) {
+            // Check all time options
+            Array.from(fromSelect.options).forEach(option => {
+                const optionTime = timeToMinutes(option.value);
+                if (option.value && (
+                    newTimeSlots[day].times.has(option.value) ||
+                    isTimeOverlap(optionTime, currentTo, newTimeSlots[day].intervals)
+                )) {
+                    option.disabled = true;
+                    option.classList.add('conflict');
+                }
+            });
+
+            Array.from(toSelect.options).forEach(option => {
+                const optionTime = timeToMinutes(option.value);
+                if (option.value && (
+                    newTimeSlots[day].times.has(option.value) ||
+                    isTimeOverlap(currentFrom, optionTime, newTimeSlots[day].intervals)
+                )) {
+                    option.disabled = true;
+                    option.classList.add('conflict');
+                }
+            });
+        }
+    });
+
+    timeSlots = newTimeSlots;
+}
+
+function removeRow(id) {
+    const row = document.getElementById('row' + id);
+    row.remove();
+    updateTimeOptions(); // Update options after removal
+}
+
+// Add CSS for conflicted options
+const style = document.createElement('style');
+style.textContent = `
+    .conflict {
+        background-color: #ffe6e6 !important;
+        color: #cc0000 !important;
+    }
+`;
+document.head.appendChild(style);
+</script>
+
+{% endblock %}

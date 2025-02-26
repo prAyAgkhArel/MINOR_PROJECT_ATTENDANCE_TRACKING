@@ -6,6 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String
 import os
+from collections import defaultdict
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret-key-goes-here'
@@ -266,6 +268,105 @@ def add_teacher(name):
             flash(f"Error: {str(e)}", "danger")
 
     return render_template('add_teacher.html', admin_name = session['user_name'], logged_in=session.get('logged_in', False))
+
+@app.route('/admin/<name>/manage_routine')
+def manage_routine(name):
+    return render_template('update_or_preview.html', logged_in=session.get('logged_in', False))
+
+@app.route('/admin/<name>/update_or_preview', methods=['POST', 'GET'])
+def update_or_preview(name):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        faculty = request.form.get('faculty')
+        sem = request.form.get('sem')
+        action = request.form.get('action')
+
+        if not faculty or not sem:
+            flash('Please select both Faculty and Semester', 'error')
+            return redirect(url_for('update_or_preview', name=name))
+
+        if action == 'update':
+            # Store in session for the update route
+            session['current_faculty'] = faculty
+            session['current_sem'] = sem
+            flash(f'Update mode activated for {faculty} semester {sem}', 'info')
+            return redirect(url_for('update', name=name, faculty=faculty, sem=sem))
+
+    # GET request - show form
+    return render_template('update_or_preview.html',
+                           logged_in=session.get('logged_in', False))
+
+def time_to_minutes(time_str):
+    try:
+        dt = datetime.strptime(time_str, '%I:%M %p')
+        return dt.hour * 60 + dt.minute
+    except:
+        return None
+@app.route('/admin/<name>/update_routine/<faculty>/<sem>', methods=['POST', 'GET'])
+def update(name, faculty, sem):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        # Process the actual routine data
+        days = request.form.getlist('day[]')
+        from_times = request.form.getlist('from_time[]')
+        to_times = request.form.getlist('to_time[]')
+        courses = request.form.getlist('course[]')
+        teachers = request.form.getlist('teacher[]')
+
+        # Validate time slots
+        day_intervals = defaultdict(list)
+        conflicts = []
+
+        def parse_time(time_str):
+            return datetime.strptime(time_str, '%I:%M %p')
+
+        for i, (day, f_time, t_time) in enumerate(zip(days, from_times, to_times)):
+            if not all([day, f_time, t_time]):
+                continue
+
+            try:
+                start = parse_time(f_time)
+                end = parse_time(t_time)
+                if start >= end:
+                    conflicts.append(i + 1)
+                    continue
+            except:
+                conflicts.append(i + 1)
+                continue
+
+            # Check for overlaps
+            for (existing_start, existing_end) in day_intervals[day]:
+                if not (end <= existing_start or start >= existing_end):
+                    conflicts.append(i + 1)
+                    break
+
+            day_intervals[day].append((start, end))
+
+        if conflicts:
+            flash(f'Time slot conflict in rows: {", ".join(map(str, set(conflicts)))}', 'error')
+            return redirect(url_for('update', name=name, faculty=faculty, sem=sem))
+
+        # Proceed with saving
+        flash('Routine updated successfully!', 'success')
+        return redirect(url_for('update', name=name, faculty=faculty, sem=sem))
+
+    # GET request - show form
+    return render_template('update_routine.html',
+                           name=name,
+                           faculty=faculty,
+                           sem=sem,
+                           logged_in=session.get('logged_in', False))
+
+
+
+@app.route('/admin/<name>/update_holiday', methods=['POST', 'GET'])
+def update_holiday(name):
+    return render_template('update_holiday.html', logged_in=session.get('logged_in', False))
+
 
 @app.route('/logout')
 def logout():
