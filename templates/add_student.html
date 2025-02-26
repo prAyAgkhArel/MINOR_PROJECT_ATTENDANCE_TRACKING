@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h4>Register Student RFID</h4>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('add_student', name=session['user_name']) }}" method="POST" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label class="form-label">Campus Roll Number</label>
+                    <input type="text" class="form-control" name="campus_rollno" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">NUID (RFID UID)</label>
+                    <input type="text" class="form-control" name="nuid" required>
+                    <small class="text-muted">Scan RFID card to populate this field</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">First Name</label>
+                    <input type="text" class="form-control" name="first_name" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" class="form-control" name="last_name" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Upload Face Images</label>
+                    <input type="file" class="form-control" name="face_images" accept="image/*" multiple required>
+                    <small class="text-muted">Please upload clear images of the student's face</small>
+                </div>
+
+                
+                <button type="submit" class="btn btn-primary">Submit</button>
+                <a href="{{ url_for('admin', name=admin_name) }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

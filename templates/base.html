@@ -15,6 +15,19 @@
 <!--    />-->
         <!-- Allow different pages to load their own CSS files -->
     {% block extra_css %}{% endblock %}
+     <style>
+      /* Custom flash message style */
+      .alert {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1050;  /* Make sure it's on top of other content */
+        width: auto;
+        max-width: 90%; /* Make the message responsive */
+        text-align: center;
+      }
+    </style>
 
   </head>
 

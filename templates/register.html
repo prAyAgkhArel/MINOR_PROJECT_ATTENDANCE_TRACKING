@@ -12,10 +12,29 @@
 <div class="box">
 	<h1>Register</h1>
     <form action="{{ url_for('register') }}" method="post">
-    	<input type="text" name="name" placeholder="Name" required="required" />
-		<input type="email" name="email" placeholder="Email" required="required" />
-        <input type="password" name="password" placeholder="Password" required="required" />
+    	<input type="text" name="first_name" placeholder="First Name" required="required" />
+        <input type="text" name="last_name" placeholder="Last Name" required="required" />
         <input type="text" name="rollno" placeholder=" Roll Number e.g. PUR078BEI048" required="required" />
+        <select name="faculty" required="required">
+            <option value="" disabled selected>Select Faculty</option>
+            <option value="BEI">BEI</option>
+            <option value="BCT">BCT</option>
+        </select>
+         <select name="sem" required="required">
+            <option value="" disabled selected>Select Semester</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+        </select>
+        <input type="email" name="email" placeholder="Email" required="required" />
+        <input type="password" name="password" placeholder="Password" required="required" />
+
+
         <button type="submit" class="btn btn-primary btn-block btn-large">Sign me up.</button>
     </form>
 </div>
