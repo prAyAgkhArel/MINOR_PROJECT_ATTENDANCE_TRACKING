@@ -1,7 +1,23 @@
 {% extends "base.html" %} {% block content %}
-<div>
-    <h1>Hello, I am a teacher  {{ name }}</h1>
+<div class="container mt-5">
+    <table class="table table-bordered table-striped">
+        <thead class="thead-dark">
+            <tr>
+                <th>Course</th>
+                <th>Attendance</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for routine in routines %}
+            <tr>
+                <td>{{routine.p1}}</td>
+                <td>0</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
 </div>
+
 
 
 {% endblock %}

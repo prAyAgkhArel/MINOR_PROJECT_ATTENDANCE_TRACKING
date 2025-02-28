@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, url_for, redirect, flash, session
+from flask import Flask, render_template, request, url_for, redirect, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import exc
@@ -8,6 +8,7 @@ from sqlalchemy import Integer, String, event
 import os
 from collections import defaultdict
 from datetime import datetime, timedelta
+from timestamps import timestamps, period_mapping
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret-key-goes-here'
@@ -218,12 +219,43 @@ def admin(name):
         return redirect(url_for('home'))
     return render_template('admin_dashboard.html', name=name, logged_in=session.get('logged_in', False))
 
+
 @app.route('/student/<name>')
 def student(name):
-    if session.get('user_role') != 'student':
-        flash('Your are not authorized to access this page.', category='danger')
+    # Fetch the student based on the first name
+    student = db.session.execute(db.select(Student).where(Student.first_name == name)).scalars().first()
+
+    if student is None:
+        flash('Student not found.', category='danger')
         return redirect(url_for('home'))
-    return render_template('student_dashboard.html', name=name, logged_in=session.get('logged_in', False))
+
+    print("This is student: ", student.first_name)
+
+    # Check if the user role is 'student'
+    if session.get('user_role') != 'student':
+        flash('You are not authorized to access this page.', category='danger')
+        return redirect(url_for('home'))
+
+    # Create the composite key (faculty + semester)
+    composite_key = student.faculty + str(
+        student.sem)
+
+    # Fetch routine based on the composite key using a LIKE query
+    routines = db.session.execute(db.select(Routine).where(Routine.rid.like(f'{composite_key}%'))).scalars().all()
+    print("here is routine", routines)
+
+    if routines is None:
+        flash('Routine not found.', category='danger')
+        return redirect(url_for('home'))
+
+    return render_template('student_dashboard.html',
+                           name=name,
+                           roll_no=student.roll_no,
+                           course=routines[0].p1,
+                           routines=routines,
+                           # routine=routine,  # Pass the routine data to the template
+                           logged_in=session.get('logged_in', False))
+
 
 @app.route('/teacher/<name>')
 def teacher(name):
@@ -353,17 +385,17 @@ def update(name, faculty, sem):
 
                 rid = f"{faculty}{sem}{day}"
 
-                # Map time to period
-                period_mapping = {
-                    '10:00 AM': 'p1',
-                    '10:45 AM': 'p2',
-                    '11:30 AM': 'p3',
-                    '12:15 PM': 'p4',
-                    '01:00 PM': 'p5',
-                    '01:45 PM': 'p6',
-                    '02:30 PM': 'p7',
-                    '03:15 PM': 'p8'
-                }
+                # # Map time to period
+                # period_mapping = {
+                #     '10:00 AM': 'p1',
+                #     '10:45 AM': 'p2',
+                #     '11:30 AM': 'p3',
+                #     '12:15 PM': 'p4',
+                #     '01:00 PM': 'p5',
+                #     '01:45 PM': 'p6',
+                #     '02:30 PM': 'p7',
+                #     '03:15 PM': 'p8'
+                # }
 
                 period = period_mapping.get(from_time)
                 if not period:
@@ -757,8 +789,76 @@ def logout():
     session.clear()
     flash("Logged out successfully.", "success")
     return redirect(url_for('home'))
+# -----------------------------RFID INTEGRATION------------------------
+
+
+def is_time_in_range(start, end):
+    # Convert 12-hour time strings to datetime objects
+    start = datetime.strptime(start, "%I:%M %p")
+    end = datetime.strptime(end, "%I:%M %p")
+    now = datetime.now().strftime("%I:%M %p")
+
+    # Check if the current time is within the range
+    return start <= now <= end
+
+
+@app.route('/api/rfid', methods=['POST'])
+def receive_rfid():
+    data = request.json
+    print("UID", data)
+    uid = data.get("uid")
+    if uid:
+        print(f"Received UID: {uid}")
+
+        # Fetch UID from Database
+        student = Ad_student.query.filter_by(uid=uid).first()
+
+        if student:
+            return jsonify({"message": "UID Matched", "status": "success"})
+            print(f'update attendance of {student.first_name}')
+            campus_rollno = student.campus_rollno
+            # face_embeddings = student.face_embeddings
+
+            # query Student table to fetch sem and faculty to get portion of routineid
+            stu = Student.query.filter_by(roll_no = campus_rollno).first()
+            faculty = stu.faculty
+            sem = stu.sem
+            routine_id = faculty + sem
+
+            #query routine table to get all the rows with the routineid
+            # list of routine rows that has rid = routine_id + -----
+            # routine = Routine.query.filter(Routine.rid.like(f'{routine_id}%')).all()
+
+
+            for index in range(len(timestamps)):
+               time_in_range = is_time_in_range(timestamps[index], timestamps[index+1])
+               if time_in_range:
+                   for (period,start) in period_mapping.items():
+                        if start == timemestamps[index]:
+                            ongoing_period = period
+                            break
+               else:
+                   print('No period now!')
+
+            today = today = datetime.now().strftime('%A')
+            todays_routine = Routine.query.filter(Routine.rid.like(f'{routine_id}%'), Routine.day == today).first()
+            if todays_routine:
+                ongoing_course = getattr(todays_routine, ongoing_period)
+            else:
+                print('Update Routine')
+
+               # now  update the student attendance table by increasing a attendance count for a student in a course taken
+
+
+    else:
+            return jsonify({"message": "UID Not Found", "status": "failed"})
+
+    return jsonify({"message": "Invalid Request", "status": "error"})
+    data = request.json
+    uid = data.get("uid")
 
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='192.168.1.64', port=5000)
+
