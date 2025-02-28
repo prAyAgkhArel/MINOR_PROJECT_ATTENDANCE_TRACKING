@@ -256,29 +256,17 @@ def teacher(name):
 def manage_routine(name):
     return render_template('update_or_preview.html', logged_in=session.get('logged_in', False))
 
-# Function to convert time to 24-hour format
+
 def time_to_24hr_format(time_str):
     return datetime.strptime(time_str, '%I:%M %p').strftime('%H:%M')
 
 
-# Starting time for the first period
-start_time = datetime.strptime("10:00 AM", "%I:%M %p")
-
-# Dictionary to store the periods and their time slots
-periods_dict = {}
-
-# Loop to create the dictionary for each period
-for period in range(1, 9):  # For periods p1 to p8
-    from_time = start_time.strftime("%H:%M")
-    to_time = (start_time + timedelta(minutes=45)).strftime("%H:%M")
-
-    periods_dict[f"p{period}"] = {"from_time": from_time, "to_time": to_time}
-
-    # Move start_time by 45 minutes for the next period
-    start_time += timedelta(minutes=45)
-
-# Output the dictionary
-print(periods_dict)
+def time_to_minutes(time_str):
+    try:
+        dt = datetime.strptime(time_str, '%I:%M %p')
+        return dt.hour * 60 + dt.minute
+    except:
+        return None
 
 
 @app.route('/admin/<name>/update_or_preview', methods=['POST', 'GET'])
@@ -296,41 +284,33 @@ def update_or_preview(name):
             return redirect(url_for('update_or_preview', name=name))
 
         if action == 'update':
-            # Store in session for the update route
             session['current_faculty'] = faculty
             session['current_sem'] = sem
             flash(f'Update mode activated for {faculty} semester {sem}', 'info')
             return redirect(url_for('update', name=name, faculty=faculty, sem=sem))
 
-    # GET request - show form
     return render_template('update_or_preview.html',
                            logged_in=session.get('logged_in', False))
 
-def time_to_minutes(time_str):
-    try:
-        dt = datetime.strptime(time_str, '%I:%M %p')
-        return dt.hour * 60 + dt.minute
-    except:
-        return None
 
 @app.route('/admin/<name>/update_routine/<faculty>/<sem>', methods=['POST', 'GET'])
 def update(name, faculty, sem):
-
-    from_timestamps = ['10:00 AM', '10:45 AM', '11:30 AM', '12:15 PM', '01:00 PM', '01:45 PM', '02:30 PM', '03:15 PM']
-    to_timestamps = ['10:45 AM', '11:30 AM', '12:15 PM', '01:00 PM', '01:45 PM', '02:30 PM', '03:15 PM', '04:00 PM']
+    from_timestamps = ['10:00 AM', '10:45 AM', '11:30 AM', '12:15 PM',
+                       '01:00 PM', '01:45 PM', '02:30 PM', '03:15 PM']
+    to_timestamps = ['10:45 AM', '11:30 AM', '12:15 PM', '01:00 PM',
+                     '01:45 PM', '02:30 PM', '03:15 PM', '04:00 PM']
 
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
     if request.method == 'POST':
-        # Process the actual routine data
         days = request.form.getlist('day[]')
         from_times = request.form.getlist('from_time[]')
         to_times = request.form.getlist('to_time[]')
         courses = request.form.getlist('course[]')
         teachers = request.form.getlist('teacher[]')
 
-        # Validate time slots
+        # Existing time validation logic
         day_intervals = defaultdict(list)
         conflicts = []
 
@@ -351,7 +331,6 @@ def update(name, faculty, sem):
                 conflicts.append(i + 1)
                 continue
 
-            # Check for overlaps
             for (existing_start, existing_end) in day_intervals[day]:
                 if not (end <= existing_start or start >= existing_end):
                     conflicts.append(i + 1)
@@ -363,54 +342,73 @@ def update(name, faculty, sem):
             flash(f'Time slot conflict in rows: {", ".join(map(str, set(conflicts)))}', 'error')
             return redirect(url_for('update', name=name, faculty=faculty, sem=sem))
 
-        # Make database update in routine table
-        for n in range(len(days)):
-            day = days[n]
-            from_time = from_times[n]
-            to_time = to_times[n]
-            course = courses[n]
-            teacher = teachers[n]
+        # New logic for consolidated entries
+        entries_by_rid = {}
+        try:
+            for n in range(len(days)):
+                day = days[n]
+                from_time = from_times[n]
+                course = courses[n]
+                teacher = teachers[n]
 
-            # Save routine data to the database
-            with app.app_context():
-                routine_row = Routine(
-                    rid=f"{faculty}{sem}{day}",
-                    day=day,
-                    p1=course if from_time == '10:00 AM' else None,
-                    p2=course if from_time == '10:45 AM' else None,
-                    p3=course if from_time == '11:30 AM' else None,
-                    p4=course if from_time == '12:15 PM' else None,
-                    p5=course if from_time == '01:00 PM' else None,
-                    p6=course if from_time == '01:45 PM' else None,
-                    p7=course if from_time == '02:30 PM' else None,
-                    p8=course if from_time == '03:15 PM' else None
-                )
-                db.session.add(routine_row)
-                db.session.commit()
+                rid = f"{faculty}{sem}{day}"
 
-        flash('Routine updated successfully!', 'success')
+                # Map time to period
+                period_mapping = {
+                    '10:00 AM': 'p1',
+                    '10:45 AM': 'p2',
+                    '11:30 AM': 'p3',
+                    '12:15 PM': 'p4',
+                    '01:00 PM': 'p5',
+                    '01:45 PM': 'p6',
+                    '02:30 PM': 'p7',
+                    '03:15 PM': 'p8'
+                }
+
+                period = period_mapping.get(from_time)
+                if not period:
+                    flash(f'Invalid time slot in row {n + 1}', 'error')
+                    continue
+
+                # Get or create routine entry
+                routine_entry = entries_by_rid.get(rid)
+                if not routine_entry:
+                    routine_entry = Routine.query.filter_by(rid=rid).first()
+                    if not routine_entry:
+                        routine_entry = Routine(rid=rid, day=day)
+                    entries_by_rid[rid] = routine_entry
+
+                # Update the period
+                setattr(routine_entry, period, f"{course} ({teacher})" if teacher else course)
+
+            # Save all changes
+            for entry in entries_by_rid.values():
+                db.session.merge(entry)
+            db.session.commit()
+            flash('Routine updated successfully!', 'success')
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating routine: {str(e)}', 'error')
+
         return redirect(url_for('update', name=name, faculty=faculty, sem=sem))
 
-    classid = faculty+sem
+    # GET request handling
+    classid = faculty + sem
     courses = Course_details.query.filter_by(classid=classid).all()
-    teachers = []  # list of Ad_teacher objects
-
+    teachers = []
     for course in courses:
         teacher = Ad_teacher.query.filter_by(uid=course.teacherid).first()
         teachers.append(teacher)
 
-    # GET request - show form
     return render_template('update_routine.html',
                            name=name,
                            faculty=faculty,
                            sem=sem,
                            from_times=from_timestamps,
-                           to_times = to_timestamps,
-                           courses = courses,
-                           teachers = teachers,
-                           logged_in = session.get('logged_in', False))
-
-
+                           to_times=to_timestamps,
+                           courses=courses,
+                           teachers=teachers)
 
 
 #_________________________________Routine Management SEction END_____________________________________
