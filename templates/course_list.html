@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h4>All Courses</h4>
+        </div>
+        <div class="table-responsive mt-5">
+        <table class="table table-striped table-hover table-bordered">
+            <thead class="table-primary">
+                <tr>
+                    <th>Class Id</th>
+                    <th>Course Name</th>
+                    <th>Teacher Id</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for course in course_list %}
+                <tr>
+                    <td><a href="{{ url_for('course_details', courseid=course.classid) }}" class="text-decoration-none text-primary">{{ course.classid }}</a></td>
+                    <td>{{ course.course }}</td>
+                    <td>{{ course.teacherid }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </div>
+</div>
+{% endblock %}

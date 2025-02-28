@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h4>Maintain Course Details</h4>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('add_course', name=session['user_name']) }}" method="POST" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label class="form-label">Course Name</label>
+                    <input type="text" class="form-control" name="course_name" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Teachers' First Name</label>
+                    <input type="text" class="form-control" name="teacher_firstname" required>
+                    <small class="text-muted">Scan RFID card to populate this field</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Teachers' Last Name</label>
+                    <input type="text" class="form-control" name="teacher_lastname" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Class Identifier</label>
+                    <input type="text"  placeholder="e.g BEI1" class="form-control" name="class_id" required>
+                </div>
+
+
+                
+                <button type="submit" class="btn btn-primary">Submit</button>
+                <a href="{{ url_for('admin', name=admin_name) }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

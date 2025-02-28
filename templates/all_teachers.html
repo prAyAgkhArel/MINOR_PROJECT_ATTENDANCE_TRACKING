@@ -1,0 +1,29 @@
+{% extends "base.html" %} {% block content %}
+<h2>All Teachers</h2>
+
+<div class="container mt-4">
+    <div class="table-responsive">
+        <table class="table table-striped table-hover table-bordered">
+            <thead class="table-primary">
+                <tr>
+                    <th>UID</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Email</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for teacher in teacher_list %}
+                <tr>
+                    <td><a href="{{ url_for('get_teachers', teacherid=teacher.uid) }}" class="text-decoration-none text-primary">{{ teacher.uid }}</a></td>
+                    <td>{{ teacher.first_name }}</td>
+                    <td>{{ teacher.last_name }}</td>
+                    <td>{{ teacher.email }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

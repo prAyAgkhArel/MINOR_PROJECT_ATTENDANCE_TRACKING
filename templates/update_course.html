@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h4>Maintain Course Details</h4>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('update_course', name=session['user_name']) }}" method="POST">
+                <!-- Course Dropdown -->
+                <div class="mb-3">
+                    <label class="form-label">Course Name</label>
+<!--                    <select class="form-select" name="course_name" id="course_name" required>-->
+<!--                        <option value="">Select Course</option>-->
+<!--                        {% for course in courses %}-->
+<!--                        <option value="{{ course}}">{{ course }}</option>-->
+<!--                        {% endfor %}-->
+<!--                    </select>-->
+                </div>
+
+                <!-- Class ID Dropdown (Dynamic) -->
+                <div class="mb-3">
+                    <label class="form-label">Class Identifier</label>
+<!--                    <select class="form-select" name="class_id" id="class_id" required>-->
+<!--                        <option value="">Select Class Identifier</option>-->
+<!--                        &lt;!&ndash; Options populated by JavaScript &ndash;&gt;-->
+<!--                         {% for class_id in classid %}-->
+<!--                        <option value="{{ course_id}}">{{ class_id }}</option>-->
+<!--                        {% endfor %}-->
+<!--                    </select>-->
+                </div>
+
+                <!-- Teacher Fields -->
+                <div class="mb-3">
+                    <label class="form-label">Teacher's First Name</label>
+                    <input type="text" class="form-control" name="teacher_firstname" id="teacher_firstname" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Teacher's Last Name</label>
+                    <input type="text" class="form-control" name="teacher_lastname" id="teacher_lastname" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Submit</button>
+                <a href="{{ url_for('admin', name=admin_name) }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
