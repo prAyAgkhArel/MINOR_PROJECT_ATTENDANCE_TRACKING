@@ -7,39 +7,29 @@
             <h4>Maintain Course Details</h4>
         </div>
         <div class="card-body">
-            <form action="{{ url_for('update_course', name=session['user_name']) }}" method="POST">
-                <!-- Course Dropdown -->
+            <form action="{{ url_for('course_details', classid=classid, course_name = course_name) }}" method="POST">
+
                 <div class="mb-3">
                     <label class="form-label">Course Name</label>
-<!--                    <select class="form-select" name="course_name" id="course_name" required>-->
-<!--                        <option value="">Select Course</option>-->
-<!--                        {% for course in courses %}-->
-<!--                        <option value="{{ course}}">{{ course }}</option>-->
-<!--                        {% endfor %}-->
-<!--                    </select>-->
+                    <input type ='text' class="form-control" value="{{ course_name }}" readonly/>
                 </div>
 
                 <!-- Class ID Dropdown (Dynamic) -->
                 <div class="mb-3">
                     <label class="form-label">Class Identifier</label>
-<!--                    <select class="form-select" name="class_id" id="class_id" required>-->
-<!--                        <option value="">Select Class Identifier</option>-->
-<!--                        &lt;!&ndash; Options populated by JavaScript &ndash;&gt;-->
-<!--                         {% for class_id in classid %}-->
-<!--                        <option value="{{ course_id}}">{{ class_id }}</option>-->
-<!--                        {% endfor %}-->
-<!--                    </select>-->
+                    <input type ='text' class="form-control" value="{{ classid }}" readonly/>
                 </div>
+
 
                 <!-- Teacher Fields -->
                 <div class="mb-3">
                     <label class="form-label">Teacher's First Name</label>
-                    <input type="text" class="form-control" name="teacher_firstname" id="teacher_firstname" required>
+                    <input type="text" class="form-control" value="{{ first_name }}" id="teacher_firstname" name="teacher_firstname" required>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label">Teacher's Last Name</label>
-                    <input type="text" class="form-control" name="teacher_lastname" id="teacher_lastname" required>
+                    <input type="text" class="form-control" value="{{ last_name }}" id="teacher_lastname" name="teacher_lastname" required>
                 </div>
 
                 <button type="submit" class="btn btn-primary">Submit</button>

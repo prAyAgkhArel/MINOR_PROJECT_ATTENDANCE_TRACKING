@@ -18,7 +18,7 @@
             <tbody>
                 {% for course in course_list %}
                 <tr>
-                    <td><a href="{{ url_for('course_details', courseid=course.classid) }}" class="text-decoration-none text-primary">{{ course.classid }}</a></td>
+                    <td><a href="{{ url_for('course_details', classid =course.classid, course_name= course.course) }}" class="text-decoration-none text-primary">{{ course.classid }}</a></td>
                     <td>{{ course.course }}</td>
                     <td>{{ course.teacherid }}</td>
                 </tr>

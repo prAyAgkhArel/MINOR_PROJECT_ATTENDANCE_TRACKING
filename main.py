@@ -21,7 +21,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///" + os.path.join(basedir, 'us
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
-# CREATE TABLE student
+#CREATE TABLE student
 class Student(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     first_name: Mapped[str] = mapped_column(String(1000), nullable=False)
@@ -491,18 +491,48 @@ def get_teacher():
         "lastname": teacher.last_name if teacher else ""
     })
 
-@app.route('/admin/courses/<courseid>')
-def course_details(courseid):
+@app.route('/admin/courses/<classid>/<course_name>', methods=['POST', 'GET'])
+def course_details(classid, course_name):
 
     if session.get('user_role', '') != 'admin':
         flash("Unauthorized access!", "danger")
         return redirect(url_for('home'))
 
-    print("courseid", courseid)
+    course = Course_details.query.filter_by(  # Fixed
+        course=course_name,
+        classid=classid
+    ).first()
+
+    if request.method == "POST":
+        first_name = request.form.get('teacher_firstname')
+        last_name = request.form.get('teacher_lastname')
+        teacher = Ad_teacher.query.filter_by(first_name=first_name, last_name=last_name).first()
+
+        if teacher:
+            course.teacherid = teacher.uid
+            db.session.commit()
+            flash("Teacher assigned successfully!", "success")
+
+        else:
+            flash('Teacher not found', "danger")
+
+    teacher = Ad_teacher.query.filter_by(  # Fixed
+        uid=course.teacherid
+    ).first()
+
+    if not teacher:
+        flash("Teacher not found! Add teacher fo", "warning")
+        return redirect(url_for('home'))
+
+    print("course", course)
     return render_template('update_course.html',
                            admin_name="name1",
                            # courses= courses,
-                           classid="classid"
+                           classid=classid,
+                           course_name = course_name,
+                           first_name = teacher.first_name,
+                           last_name = teacher.last_name
+
                            )
 
 
