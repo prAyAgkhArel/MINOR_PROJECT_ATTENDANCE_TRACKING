@@ -66,52 +66,37 @@
                 <div class="col-md-2">
                     <select class="form-select" name="from_time[]" required>
                         <option value="">From</option>
-                        <option>8:00 AM</option>
-                        <option>9:00 AM</option>
-                        <option>10:00 AM</option>
-                        <option>11:00 AM</option>
-                        <option>12:00 PM</option>
-                        <option>1:00 PM</option>
-                        <option>2:00 PM</option>
-                        <option>3:00 PM</option>
+                        {%  for from_time in from_times %}
+                        <option>{{ from_time }}</option>
+                        {% endfor %}
                     </select>
                 </div>
 
                 <div class="col-md-2">
                     <select class="form-select" name="to_time[]" required>
                         <option value="">To</option>
-                        <option>9:00 AM</option>
-                        <option>10:00 AM</option>
-                        <option>11:00 AM</option>
-                        <option>12:00 PM</option>
-                        <option>1:00 PM</option>
-                        <option>2:00 PM</option>
-                        <option>3:00 PM</option>
-                        <option>4:00 PM</option>
+                        {% for to_time in to_times %}
+                        <option>{{ to_time }}</option>
+                        {% endfor %}
                     </select>
                 </div>
 
                 <div class="col-md-3">
                     <select class="form-select" name="course[]" required>
                         <option value="">Select Course</option>
-                        <option>Course 1</option>
-                        <option>Course 2</option>
-                        <option>Course 3</option>
-                        <option>Course 4</option>
-                        <option>Course 5</option>
-                        <option>Course 6</option>
+                        {% for course in courses %}
+                        <option>{{ course.course }}</option>
+                        {% endfor %}
                     </select>
                 </div>
 
                 <div class="col-md-3">
                     <select class="form-select" name="teacher[]" required>
                         <option value="">Select Teacher</option>
-                        <option>Teacher 1</option>
-                        <option>Teacher 2</option>
-                        <option>Teacher 3</option>
-                        <option>Teacher 4</option>
-                        <option>Teacher 5</option>
-                        <option>Teacher 6</option>
+                            {% for teacher in teachers %}
+                        <option>{{ teacher.first_name ~ ' ' ~ teacher.last_name }}</option>
+                            {% endfor %}
+
                     </select>
                 </div>
             </div>
@@ -134,93 +119,21 @@
 </div>
 
 <script>
-// ... (keep existing timeToMinutes and variables)
 
-function isTimeOverlap(newStart, newEnd, existingIntervals) {
-    return existingIntervals.some(([existingStart, existingEnd]) => {
-        return !(newEnd <= existingStart || newStart >= existingEnd);
-    });
-}
+  function addRow() {
+        var routineRows = document.querySelector(".routine-rows");  // Use querySelector for the class
+        var newRow = document.getElementById("row1").cloneNode(true); // Clone the first row
 
-function updateTimeOptions() {
-    // Reset all options first
-    document.querySelectorAll('select').forEach(select => {
-        Array.from(select.options).forEach(option => {
-            option.disabled = false;
-            option.classList.remove('conflict');
+        // Clear the input fields of the new row
+        var inputs = newRow.querySelectorAll('select');
+        inputs.forEach(function(input) {
+            input.value = "";  // Reset value of each input
         });
-    });
 
-    const newTimeSlots = {};
-
-    // First pass: collect all time intervals
-    document.querySelectorAll('.row').forEach(row => {
-        const day = row.querySelector('[name="day[]"]').value;
-        const from = row.querySelector('[name="from_time[]"]').value;
-        const to = row.querySelector('[name="to_time[]"]').value;
-
-        if (day && from && to) {
-            if (!newTimeSlots[day]) newTimeSlots[day] = { intervals: [], times: new Set() };
-
-            const start = timeToMinutes(from);
-            const end = timeToMinutes(to);
-            newTimeSlots[day].intervals.push([start, end]);
-            newTimeSlots[day].times.add(from).add(to);
-        }
-    });
-
-    // Second pass: disable conflicting options
-    document.querySelectorAll('.row').forEach(row => {
-        const day = row.querySelector('[name="day[]"]').value;
-        const fromSelect = row.querySelector('[name="from_time[]"]');
-        const toSelect = row.querySelector('[name="to_time[]"]');
-        const currentFrom = timeToMinutes(fromSelect.value);
-        const currentTo = timeToMinutes(toSelect.value);
-
-        if (day && newTimeSlots[day]) {
-            // Check all time options
-            Array.from(fromSelect.options).forEach(option => {
-                const optionTime = timeToMinutes(option.value);
-                if (option.value && (
-                    newTimeSlots[day].times.has(option.value) ||
-                    isTimeOverlap(optionTime, currentTo, newTimeSlots[day].intervals)
-                )) {
-                    option.disabled = true;
-                    option.classList.add('conflict');
-                }
-            });
-
-            Array.from(toSelect.options).forEach(option => {
-                const optionTime = timeToMinutes(option.value);
-                if (option.value && (
-                    newTimeSlots[day].times.has(option.value) ||
-                    isTimeOverlap(currentFrom, optionTime, newTimeSlots[day].intervals)
-                )) {
-                    option.disabled = true;
-                    option.classList.add('conflict');
-                }
-            });
-        }
-    });
-
-    timeSlots = newTimeSlots;
-}
-
-function removeRow(id) {
-    const row = document.getElementById('row' + id);
-    row.remove();
-    updateTimeOptions(); // Update options after removal
-}
-
-// Add CSS for conflicted options
-const style = document.createElement('style');
-style.textContent = `
-    .conflict {
-        background-color: #ffe6e6 !important;
-        color: #cc0000 !important;
+        // Append the new row to the routine-rows container
+        routineRows.appendChild(newRow);
     }
-`;
-document.head.appendChild(style);
+
 </script>
 
 {% endblock %}

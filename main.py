@@ -7,7 +7,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String, event
 import os
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret-key-goes-here'
@@ -58,7 +58,8 @@ class Ad_teacher(db.Model):
 
 
 class Routine(db.Model):
-    rid: Mapped[str] = mapped_column(String(100), primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    rid: Mapped[str] = mapped_column(String(100), nullable=False)
     day: Mapped[str] = mapped_column(String(100), nullable=False)
     p1: Mapped[str] = mapped_column(String(10), nullable=True)
     p2: Mapped[str] = mapped_column(String(10), nullable=True)
@@ -234,90 +235,51 @@ def teacher(name):
 
 
 
-#ADD Student
-@app.route('/admin/<name>/add_student', methods=['GET', 'POST'])
-def add_student(name):
-    if session.get('user_role', '') != 'admin':
-        flash("Unauthorized access!", "danger")
-        return redirect(url_for('home'))
 
-    if request.method == 'POST':
-        try:
-            with app.app_context():
-                campus_rollno = request.form.get('campus_rollno')
-                nuid = request.form.get('nuid')
-                first_name = request.form.get('first_name')
-                last_name = request.form.get('last_name')
-
-
-                existing_student = db.session.execute(db.select(Ad_student).where(Ad_student.campus_rollno==campus_rollno)).scalars().first()
-
-                if existing_student:
-                    flash(' This RFID or Roll Number already exists!', "danger")
-                    return redirect(url_for('admin', name=session['user_name']))
-
-                new_student = Ad_student(
-                    campus_rollno=campus_rollno,
-                    uid=str(nuid),
-                    first_name = first_name,
-                    last_name = last_name
-                )
-
-                db.session.add(new_student)
-                db.session.commit()
-                flash("Student RFID mapping added successfully!", "success")
-
-        except Exception as e:
-            db.session.rollback()
-            flash(f"Error: {str(e)}", "danger")
-
-        return redirect(url_for('admin', name=session['user_name']))
-
-    return render_template("add_student.html", admin_name=session['user_name'], logged_in=session.get('logged_in', False))
 
 
 
 #ADD teacher
-@app.route('/admin/<name>/add_teacher', methods=['POST', 'GET'])
-def add_teacher(name):
-    if session.get('user_role', '') != 'admin':
-        flash("Unauthorized access!", "danger")
-        return redirect(url_for('home'))
-
-    if request.method == 'POST':
-        try:
-            with app.app_context():
-                nuid = request.form.get('nuid')
-                first_name = request.form.get('first_name')
-                last_name = request.form.get('last_name')
-                email = request.form.get('email')
-                password = request.form.get('password')
-                #face
-
-                existing_teacher = db.session.execute(db.select(Ad_teacher).where(Ad_teacher.uid == nuid)).scalars().first()
-                if existing_teacher:
-                    flash(' This RFID already exists!', "danger")
-                    return redirect(url_for('admin', name=session['user_name']))
-
-                hashed_password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=8)
-                new_teacher = Ad_teacher(uid=nuid, first_name=first_name, last_name=last_name, email=email, password=hashed_password)
-
-                db.session.add(new_teacher)
-                db.session.commit()
-                flash("Teacher RFID  added successfully!", "success")
 
 
-            return redirect(url_for('admin', name=session['user_name']))
 
-        except Exception as e:
-            db.session.rollback()
-            flash(f"Error: {str(e)}", "danger")
 
-    return render_template('add_teacher.html', admin_name = session['user_name'], logged_in=session.get('logged_in', False))
+
+
+
+
+
+# -------------------------------ROUTINE Management Section START---------------------------------------
+
 
 @app.route('/admin/<name>/manage_routine')
 def manage_routine(name):
     return render_template('update_or_preview.html', logged_in=session.get('logged_in', False))
+
+# Function to convert time to 24-hour format
+def time_to_24hr_format(time_str):
+    return datetime.strptime(time_str, '%I:%M %p').strftime('%H:%M')
+
+
+# Starting time for the first period
+start_time = datetime.strptime("10:00 AM", "%I:%M %p")
+
+# Dictionary to store the periods and their time slots
+periods_dict = {}
+
+# Loop to create the dictionary for each period
+for period in range(1, 9):  # For periods p1 to p8
+    from_time = start_time.strftime("%H:%M")
+    to_time = (start_time + timedelta(minutes=45)).strftime("%H:%M")
+
+    periods_dict[f"p{period}"] = {"from_time": from_time, "to_time": to_time}
+
+    # Move start_time by 45 minutes for the next period
+    start_time += timedelta(minutes=45)
+
+# Output the dictionary
+print(periods_dict)
+
 
 @app.route('/admin/<name>/update_or_preview', methods=['POST', 'GET'])
 def update_or_preview(name):
@@ -350,8 +312,13 @@ def time_to_minutes(time_str):
         return dt.hour * 60 + dt.minute
     except:
         return None
+
 @app.route('/admin/<name>/update_routine/<faculty>/<sem>', methods=['POST', 'GET'])
 def update(name, faculty, sem):
+
+    from_timestamps = ['10:00 AM', '10:45 AM', '11:30 AM', '12:15 PM', '01:00 PM', '01:45 PM', '02:30 PM', '03:15 PM']
+    to_timestamps = ['10:45 AM', '11:30 AM', '12:15 PM', '01:00 PM', '01:45 PM', '02:30 PM', '03:15 PM', '04:00 PM']
+
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
@@ -362,8 +329,6 @@ def update(name, faculty, sem):
         to_times = request.form.getlist('to_time[]')
         courses = request.form.getlist('course[]')
         teachers = request.form.getlist('teacher[]')
-
-
 
         # Validate time slots
         day_intervals = defaultdict(list)
@@ -398,33 +363,62 @@ def update(name, faculty, sem):
             flash(f'Time slot conflict in rows: {", ".join(map(str, set(conflicts)))}', 'error')
             return redirect(url_for('update', name=name, faculty=faculty, sem=sem))
 
-        # make database update in routine table
+        # Make database update in routine table
+        for n in range(len(days)):
+            day = days[n]
+            from_time = from_times[n]
+            to_time = to_times[n]
+            course = courses[n]
+            teacher = teachers[n]
 
-        # for n in range(len(days)):
-        #     day = day[n]
-        #     from_time = from_times[n]
-        #     to_time = to_times[n]
-        #     course = courses[n]
-        #     teacher = teachers[n]
-        #
-        #     with app.app_context():
-        #         routine_row = Routine(
-        #
-        #         )
-        #         db.session.add()
+            # Save routine data to the database
+            with app.app_context():
+                routine_row = Routine(
+                    rid=f"{faculty}{sem}{day}",
+                    day=day,
+                    p1=course if from_time == '10:00 AM' else None,
+                    p2=course if from_time == '10:45 AM' else None,
+                    p3=course if from_time == '11:30 AM' else None,
+                    p4=course if from_time == '12:15 PM' else None,
+                    p5=course if from_time == '01:00 PM' else None,
+                    p6=course if from_time == '01:45 PM' else None,
+                    p7=course if from_time == '02:30 PM' else None,
+                    p8=course if from_time == '03:15 PM' else None
+                )
+                db.session.add(routine_row)
+                db.session.commit()
 
-
-        # Proceed with saving
         flash('Routine updated successfully!', 'success')
         return redirect(url_for('update', name=name, faculty=faculty, sem=sem))
+
+    classid = faculty+sem
+    courses = Course_details.query.filter_by(classid=classid).all()
+    teachers = []  # list of Ad_teacher objects
+
+    for course in courses:
+        teacher = Ad_teacher.query.filter_by(uid=course.teacherid).first()
+        teachers.append(teacher)
 
     # GET request - show form
     return render_template('update_routine.html',
                            name=name,
                            faculty=faculty,
                            sem=sem,
-                           logged_in=session.get('logged_in', False))
+                           from_times=from_timestamps,
+                           to_times = to_timestamps,
+                           courses = courses,
+                           teachers = teachers,
+                           logged_in = session.get('logged_in', False))
 
+
+
+
+#_________________________________Routine Management SEction END_____________________________________
+
+
+
+
+#---------------------------Course Management Section START------------------------------------------
 
 @app.route('/admin/<name>/add_course', methods=['POST', 'GET'])
 def add_course(name):
@@ -463,33 +457,6 @@ def add_course(name):
         return redirect(url_for('admin', name=name))
 
     return render_template('add_course.html', admin_name=name)
-
-
-@app.route('/get_class_ids', methods=['GET'])
-def get_class_ids():
-    course_name = request.args.get('course_name')
-    class_ids = [
-        c.classid for c in Course_details.query.filter_by(course=course_name).all()  # Fixed
-    ] if course_name else []
-    return jsonify({"class_ids": class_ids})
-
-
-@app.route('/get_teacher', methods=['POST'])
-def get_teacher():
-    data = request.get_json()
-    course = Course_details.query.filter_by(  # Fixed
-        course=data.get('course_name'),
-        classid=data.get('class_id')
-    ).first()
-
-    if not course:
-        return jsonify({"firstname": "", "lastname": ""})
-
-    teacher = Ad_teacher.query.get(course.teacherid)
-    return jsonify({
-        "firstname": teacher.first_name if teacher else "",
-        "lastname": teacher.last_name if teacher else ""
-    })
 
 @app.route('/admin/courses/<classid>/<course_name>', methods=['POST', 'GET'])
 def course_details(classid, course_name):
@@ -535,6 +502,100 @@ def course_details(classid, course_name):
 
                            )
 
+@app.route('/admin/courses', methods=['GET'])
+def get_courses():
+
+    # if 'user_name' not in session or session['user_name'] != name:
+    #     flash("Unauthorized Access", "danger")
+    #     return redirect(url_for('login'))
+    if session.get('user_role', '') != 'admin':
+        flash("Unauthorized access!", "danger")
+        return redirect(url_for('home'))
+
+    courses = Course_details.query.all()  # This fetches all the rows
+    course_list = []  # Empty list to store dictionaries
+
+    # Loop through each course and append dictionary
+    for course in courses:
+        course_list.append({
+            'course': course.course,
+            'classid': course.classid,
+            'teacherid': course.teacherid
+        })
+
+    # course_id = [course[0] for course in Course_details.query.with_entities(Course_details.courseid).distinct().all()]
+    print("courses: ",course_list)
+
+    return render_template('course_list.html', course_list=course_list)
+
+#-----------------------Course Management Section END-------------------------------------------------
+
+
+# @app.route('/get_class_ids', methods=['GET'])
+# def get_class_ids():
+#     course_name = request.args.get('course_name')
+#     class_ids = [
+#         c.classid for c in Course_details.query.filter_by(course=course_name).all()  # Fixed
+#     ] if course_name else []
+#     return jsonify({"class_ids": class_ids})
+
+
+# @app.route('/get_teacher', methods=['POST'])
+# def get_teacher():
+#     data = request.get_json()
+#     course = Course_details.query.filter_by(  # Fixed
+#         course=data.get('course_name'),
+#         classid=data.get('class_id')
+#     ).first()
+#
+#     if not course:
+#         return jsonify({"firstname": "", "lastname": ""})
+#
+#     teacher = Ad_teacher.query.get(course.teacherid)
+#     return jsonify({
+#         "firstname": teacher.first_name if teacher else "",
+#         "lastname": teacher.last_name if teacher else ""
+#     })
+
+
+#---------------------TEACHER MANAGEMENT SECTION START---------------------------------------------
+@app.route('/admin/<name>/add_teacher', methods=['POST', 'GET'])
+def add_teacher(name):
+    if session.get('user_role', '') != 'admin':
+        flash("Unauthorized access!", "danger")
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        try:
+            with app.app_context():
+                nuid = request.form.get('nuid')
+                first_name = request.form.get('first_name')
+                last_name = request.form.get('last_name')
+                email = request.form.get('email')
+                password = request.form.get('password')
+                #face
+
+                existing_teacher = db.session.execute(db.select(Ad_teacher).where(Ad_teacher.uid == nuid)).scalars().first()
+                if existing_teacher:
+                    flash(' This RFID already exists!', "danger")
+                    return redirect(url_for('admin', name=session['user_name']))
+
+                hashed_password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=8)
+                new_teacher = Ad_teacher(uid=nuid, first_name=first_name, last_name=last_name, email=email, password=hashed_password)
+
+                db.session.add(new_teacher)
+                db.session.commit()
+                flash("Teacher RFID  added successfully!", "success")
+
+
+            return redirect(url_for('admin', name=session['user_name']))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error: {str(e)}", "danger")
+
+    return render_template('add_teacher.html', admin_name = session['user_name'], logged_in=session.get('logged_in', False))
+
 
 @app.route('/admin/teachers')
 def get_teachers():
@@ -563,6 +624,53 @@ def get_teachers():
                            )
 
 
+#--------------------------------TEACHER MANAGEMENT SECTION END-------------------------------
+
+
+
+
+#----------------------STUDENT MANAGEMENT SECTION START-------------------------------------------
+
+#ADD Student
+@app.route('/admin/<name>/add_student', methods=['GET', 'POST'])
+def add_student(name):
+    if session.get('user_role', '') != 'admin':
+        flash("Unauthorized access!", "danger")
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        try:
+            with app.app_context():
+                campus_rollno = request.form.get('campus_rollno')
+                nuid = request.form.get('nuid')
+                first_name = request.form.get('first_name')
+                last_name = request.form.get('last_name')
+
+
+                existing_student = db.session.execute(db.select(Ad_student).where(Ad_student.campus_rollno==campus_rollno)).scalars().first()
+
+                if existing_student:
+                    flash(' This RFID or Roll Number already exists!', "danger")
+                    return redirect(url_for('admin', name=session['user_name']))
+
+                new_student = Ad_student(
+                    campus_rollno=campus_rollno,
+                    uid=str(nuid),
+                    first_name = first_name,
+                    last_name = last_name
+                )
+
+                db.session.add(new_student)
+                db.session.commit()
+                flash("Student RFID mapping added successfully!", "success")
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error: {str(e)}", "danger")
+
+        return redirect(url_for('admin', name=session['user_name']))
+
+    return render_template("add_student.html", admin_name=session['user_name'], logged_in=session.get('logged_in', False))
 @app.route('/admin/students')
 def get_students():
 
@@ -588,83 +696,59 @@ def get_students():
     return render_template('all_students.html',
                            student_list=student_list
                            )
+#---------------------------STUDENT MANAGEMENT SECTION END---------------------------------
 
 
-@app.route('/admin/<name>/update_course', methods=['POST', 'GET'])
-def update_course(name):
-    if 'user_name' not in session or session['user_name'] != name:
-        flash("Unauthorized Access", "danger")
-        return redirect(url_for('login'))
 
-    courses = courses = [course[0] for course in Course_details.query.with_entities(Course_details.course).distinct().all()]
-    classid = [classid[0] for classid in
-                         Course_details.query.with_entities(Course_details.classid).distinct().all()]
-    print("courses: ",courses)
-    print("classid: ", classid)
+# @app.route('/admin/<name>/update_course', methods=['POST', 'GET'])
+# def update_course(name):
+#     if 'user_name' not in session or session['user_name'] != name:
+#         flash("Unauthorized Access", "danger")
+#         return redirect(url_for('login'))
+#
+#     courses = courses = [course[0] for course in Course_details.query.with_entities(Course_details.course).distinct().all()]
+#     classid = [classid[0] for classid in
+#                          Course_details.query.with_entities(Course_details.classid).distinct().all()]
+#
+#     if request.method == 'POST':
+#         course_name = request.form.get('course_name')
+#         class_id = request.form.get('class_id')
+#         teacher_firstname = request.form.get('teacher_firstname').strip()
+#         teacher_lastname = request.form.get('teacher_lastname').strip()
+#
+#         # Find existing course-class pair
+#         course = Course_details.query.filter_by(
+#             course=course_name,
+#             classid=class_id
+#         ).first()
+#
+#         if not course:
+#             flash("Course-class combination not found!", "warning")
+#             return redirect(url_for('update_course', name=name))
+#
+#         # Find teacher
+#         teacher = Ad_teacher.query.filter_by(
+#             first_name=teacher_firstname,
+#             last_name=teacher_lastname
+#         ).first()
+#
+#         if not teacher:
+#             flash("Teacher not found in system!", "danger")
+#             return redirect(url_for('update_course', name=name))
+#
+#         # Update course
+#         course.teacherid = teacher.uid
+#         db.session.commit()
+#         flash("Course teacher updated successfully!", "success")
+#         return redirect(url_for('admin', name=name))
+#
+#     return render_template('update_course.html',
+#                            admin_name=name,
+#                            courses= courses,
+#                            classid=classid
+#                            )
 
-    if request.method == 'POST':
-        course_name = request.form.get('course_name')
-        class_id = request.form.get('class_id')
-        teacher_firstname = request.form.get('teacher_firstname').strip()
-        teacher_lastname = request.form.get('teacher_lastname').strip()
 
-        # Find existing course-class pair
-        course = Course_details.query.filter_by(
-            course=course_name,
-            classid=class_id
-        ).first()
-
-        if not course:
-            flash("Course-class combination not found!", "warning")
-            return redirect(url_for('update_course', name=name))
-
-        # Find teacher
-        teacher = Ad_teacher.query.filter_by(
-            first_name=teacher_firstname,
-            last_name=teacher_lastname
-        ).first()
-
-        if not teacher:
-            flash("Teacher not found in system!", "danger")
-            return redirect(url_for('update_course', name=name))
-
-        # Update course
-        course.teacherid = teacher.uid
-        db.session.commit()
-        flash("Course teacher updated successfully!", "success")
-        return redirect(url_for('admin', name=name))
-
-    return render_template('update_course.html',
-                           admin_name=name,
-                           courses= courses,
-                           classid=classid
-                           )
-
-@app.route('/admin/courses', methods=['GET'])
-def get_courses():
-
-    # if 'user_name' not in session or session['user_name'] != name:
-    #     flash("Unauthorized Access", "danger")
-    #     return redirect(url_for('login'))
-    if session.get('user_role', '') != 'admin':
-        flash("Unauthorized access!", "danger")
-        return redirect(url_for('home'))
-
-    courses = Course_details.query.all()  # This fetches all the rows
-    course_list = []  # Empty list to store dictionaries
-
-    # Loop through each course and append dictionary
-    for course in courses:
-        course_list.append({
-            'course': course.course,
-            'classid': course.classid,
-            'teacherid': course.teacherid
-        })
-
-    # course_id = [course[0] for course in Course_details.query.with_entities(Course_details.courseid).distinct().all()]
-    print("courses: ",course_list)
-
-    return render_template('course_list.html', course_list=course_list)
 @app.route('/admin/<name>/update_holiday', methods=['POST', 'GET'])
 def update_holiday(name):
     return render_template('update_holiday.html', logged_in=session.get('logged_in', False))

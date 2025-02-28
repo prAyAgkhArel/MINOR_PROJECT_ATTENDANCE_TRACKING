@@ -17,7 +17,7 @@
         </div>
         <div class="submenu">
             <a href="{{ url_for('add_student', name = session['user_name'] ) }}">Add Student</a>
-            <a href="#">Update Info</a>
+            <a href="{{ url_for('get_students') }}">All Students</a>
         </div>
     </div>
 
@@ -28,7 +28,7 @@
         </div>
         <div class="submenu">
             <a href="{{ url_for('add_teacher', name = session['user_name']) }}">Add Teacher</a>
-            <a href="#">Update Info</a>
+            <a href="{{ url_for('get_teachers') }}">All Teachers</a>
         </div>
     </div>
 
@@ -42,6 +42,17 @@
         </div>
     </div>
 
+    <div class="menu-item">
+        <div class="menu-header">
+            <span>Manage Courses</span>
+        </div>
+        <div class="submenu">
+            <a href="{{ url_for('add_course', name = session['user_name']) }}">Add Course Details</a>
+            <a href="{{ url_for('get_courses')}}">All courses</a>
+
+
+        </div>
+    </div>
 
 
     <!-- Manage Holidays -->
@@ -54,6 +65,7 @@
         </div>
     </div>
 </div>
+
 
 <div class="main-content" id="main-content">
     <div class="container mt-5">
