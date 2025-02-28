@@ -327,9 +327,9 @@ def update_or_preview(name):
 
 @app.route('/admin/<name>/update_routine/<faculty>/<sem>', methods=['POST', 'GET'])
 def update(name, faculty, sem):
-    from_timestamps = ['10:00 AM', '10:45 AM', '11:30 AM', '12:15 PM',
+    from_timestamps = ['01:00 AM', '10:45 AM', '11:30 AM', '12:15 PM',
                        '01:00 PM', '01:45 PM', '02:30 PM', '03:15 PM']
-    to_timestamps = ['10:45 AM', '11:30 AM', '12:15 PM', '01:00 PM',
+    to_timestamps = ['02:45 AM', '11:30 AM', '12:15 PM', '01:00 PM',
                      '01:45 PM', '02:30 PM', '03:15 PM', '04:00 PM']
 
     if not session.get('logged_in'):
@@ -805,13 +805,15 @@ def is_time_in_range(start, end):
 @app.route('/api/rfid', methods=['POST'])
 def receive_rfid():
     data = request.json
-    print("UID", data)
-    uid = data.get("uid")
+    uid = data.get("uid")  # Extract the 'uid' field from the JSON data
+
     if uid:
         print(f"Received UID: {uid}")
 
+
         # Fetch UID from Database
         student = Ad_student.query.filter_by(uid=uid).first()
+
 
         if student:
             return jsonify({"message": "UID Matched", "status": "success"})
@@ -834,7 +836,7 @@ def receive_rfid():
                time_in_range = is_time_in_range(timestamps[index], timestamps[index+1])
                if time_in_range:
                    for (period,start) in period_mapping.items():
-                        if start == timemestamps[index]:
+                        if start == timestamps[index]:
                             ongoing_period = period
                             break
                else:
@@ -842,12 +844,20 @@ def receive_rfid():
 
             today = today = datetime.now().strftime('%A')
             todays_routine = Routine.query.filter(Routine.rid.like(f'{routine_id}%'), Routine.day == today).first()
+            print("todays routine:", todays_routine)
+
             if todays_routine:
                 ongoing_course = getattr(todays_routine, ongoing_period)
+
             else:
                 print('Update Routine')
 
-               # now  update the student attendance table by increasing a attendance count for a student in a course taken
+
+            # now  update the student attendance table by increasing a attendance count for a student in a course taken
+            StudentAttendance.roll_no = campus_rollno
+            StudentAttendance.courseid_taken = ongoing_course.split('(')[0]
+            attendace_row = StudentAttendance.query.filter_by(roll_no == campus_rollno, courseid_taken == ongoing_course.split('(')[0] )
+            attendace_row.total_attendance += 1
 
 
     else:
@@ -860,5 +870,5 @@ def receive_rfid():
 
 
 if __name__ == "__main__":
-    app.run(host='192.168.1.64', port=5000)
+    app.run(debug=True, host='192.168.1.64', port=5000)
 
