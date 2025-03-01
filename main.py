@@ -290,16 +290,16 @@ def manage_routine(name):
     return render_template('update_or_preview.html', logged_in=session.get('logged_in', False))
 
 
-def time_to_24hr_format(time_str):
-    return datetime.strptime(time_str, '%I:%M %p').strftime('%H:%M')
+# def time_to_24hr_format(time_str):
+#     return datetime.strptime(time_str, '%I:%M %p').strftime('%H:%M')
 
 
-def time_to_minutes(time_str):
-    try:
-        dt = datetime.strptime(time_str, '%I:%M %p')
-        return dt.hour * 60 + dt.minute
-    except:
-        return None
+# def time_to_minutes(time_str):
+#     try:
+#         dt = datetime.strptime(time_str, '%I:%M %p')
+#         return dt.hour * 60 + dt.minute
+#     except:
+#         return None
 
 
 @app.route('/admin/<name>/update_or_preview', methods=['POST', 'GET'])
@@ -328,10 +328,8 @@ def update_or_preview(name):
 
 @app.route('/admin/<name>/update_routine/<faculty>/<sem>', methods=['POST', 'GET'])
 def update(name, faculty, sem):
-    from_timestamps = ['12:00 AM', '12:45 AM', '11:30 AM', '12:15 PM',
-                       '01:00 PM', '01:45 PM', '02:30 PM', '03:15 PM']
-    to_timestamps = ['12:45 AM', '11:30 AM', '12:15 PM', '01:00 PM',
-                     '01:45 PM', '02:30 PM', '03:15 PM', '04:00 PM']
+    from_timestamps = ['01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00']
+    to_timestamps = ['02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00']
 
     if not session.get('logged_in'):
         return redirect(url_for('login'))
@@ -348,7 +346,8 @@ def update(name, faculty, sem):
         conflicts = []
 
         def parse_time(time_str):
-            return datetime.strptime(time_str, '%I:%M %p')
+            return datetime.strptime(time_str, '%H:%M')
+
 
         for i, (day, f_time, t_time) in enumerate(zip(days, from_times, to_times)):
             if not all([day, f_time, t_time]):
@@ -386,17 +385,6 @@ def update(name, faculty, sem):
 
                 rid = f"{faculty}{sem}{day}"
 
-                # # Map time to period
-                # period_mapping = {
-                #     '10:00 AM': 'p1',
-                #     '10:45 AM': 'p2',
-                #     '11:30 AM': 'p3',
-                #     '12:15 PM': 'p4',
-                #     '01:00 PM': 'p5',
-                #     '01:45 PM': 'p6',
-                #     '02:30 PM': 'p7',
-                #     '03:15 PM': 'p8'
-                # }
 
                 period = period_mapping.get(from_time)
                 if not period:
@@ -875,14 +863,19 @@ def logout():
 # -----------------------------RFID INTEGRATION------------------------
 
 
-def is_time_in_range(start, end):
-    # Convert 12-hour time strings to datetime objects
-    start = datetime.strptime(start, "%I:%M %p")
-    end = datetime.strptime(end, "%I:%M %p")
-    now = datetime.now().strftime("%I:%M %p")
+# def is_time_in_range(start, end):
+#     # Convert 12-hour time strings to datetime objects
+#     start = datetime.strptime(start, "%I:%M %p")
+#     end = datetime.strptime(end, "%I:%M %p")
+#     now = datetime.now().strftime("%I:%M %p")
 
-    # Check if the current time is within the range
+def is_time_in_range(start, end):
+    now = datetime.now().time()  # Keep 'now' as time only
+    start = datetime.strptime(start, "%H:%M").time()  # Convert start to time
+    end = datetime.strptime(end, "%H:%M").time()  # Convert end to time
+
     return start <= now <= end
+
 
 
 @app.route('/api/rfid', methods=['POST'])
@@ -908,30 +901,32 @@ def receive_rfid():
 
             faculty = stu.faculty
             sem = stu.sem
-            routine_id = faculty + sem
+            routine_id = str(faculty) + str(sem)
 
             # Fetch Routine
             routines = Routine.query.filter(Routine.rid.like(f'{routine_id}%')).all()
 
             today = datetime.now().strftime('%A')
             todays_routine = Routine.query.filter(Routine.rid.like(f'{routine_id}%'), Routine.day == today).first()
-            print("Today's Routine:", todays_routine)
+            print("Today's Routine p1:", todays_routine.p1)
+            print("Today's Routine p2:", todays_routine.p2)
 
             if todays_routine:
                 for index in range(len(timestamps) - 1):
                     if is_time_in_range(timestamps[index], timestamps[index + 1]):
-                        ongoing_period = [period for period, start in period_mapping.items() if start == timestamps[index]][0]
+                        ongoing_period = [period for start, period in period_mapping.items() if start == timestamps[index]][0]
                         ongoing_course = getattr(todays_routine, ongoing_period)
 
                         if ongoing_course:
                             ongoing_course_cleaned = ongoing_course.split('(')[0] if '(' in ongoing_course else ongoing_course
+                            print(f"ongoing course for student: {ongoing_course_cleaned}")
 
                             # Attendance Update
                             attendance_row = StudentAttendance.query.filter_by(roll_no=campus_rollno, courseid_taken=ongoing_course_cleaned).first()
                             if attendance_row:
                                 attendance_row.total_attendance += 1
                                 db.session.commit()
-                                print(f"Attendance Updated for {student.first_name} in {ongoing_course_cleaned}")
+                                print(f"Attendance Updated for {student.first_name} in {ongoing_course_cleaned} :{attendance_row.total_attendance}")
                             else:
                                 print("Attendance Row Not Found")
                         else:
@@ -963,7 +958,7 @@ def receive_rfid():
             # Get ongoing periods
             for index in range(len(timestamps) - 1):
                 if is_time_in_range(timestamps[index], timestamps[index + 1]):
-                    ongoing_period = [period for period, start in period_mapping.items() if start == timestamps[index]][
+                    ongoing_period = [period for start, period in period_mapping.items() if start == timestamps[index]][
                         0]
                     print("Ongoing Period:", ongoing_period)
 
@@ -974,11 +969,12 @@ def receive_rfid():
                     for routine in ongoing_routines:
                         course_name = getattr(routine, ongoing_period)
                         if course_name:
-                            course_cleaned = course_name.split('(')[0] if '(' in course_name else course_name
+                            course_cleaned = course_name.split('(')[0][:-1] if '(' in course_name else course_name
 
                             # Match Teacher's Course from Course_details
-                            teacher_course = Course_details.query.filter_by(courseid=course_cleaned,
+                            teacher_course = Course_details.query.filter_by(course=course_cleaned,
                                                                             teacherid=teacher.uid).first()
+
 
                             if teacher_course:
                                 print(f"Teacher {teacher.first_name} is taking {course_cleaned}")
@@ -999,6 +995,8 @@ def receive_rfid():
                                 return jsonify({"message": "Teacher Attendance Updated", "status": "success"})
                             else:
                                 print(f"No Course Found for {teacher.first_name} in {course_cleaned}")
+
+
 
                     break
             else:
