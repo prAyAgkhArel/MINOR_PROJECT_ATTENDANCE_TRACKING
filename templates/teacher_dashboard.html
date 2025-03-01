@@ -8,10 +8,10 @@
             </tr>
         </thead>
         <tbody>
-        {% for routine in routines %}
+        {% for attendance in attendance_details %}
             <tr>
-                <td>{{routine.p1}}</td>
-                <td>0</td>
+                <td>{{attendance.course_id}}</td>
+                <td>{{attendance.total_attendance}}</td>
             </tr>
         {% endfor %}
         </tbody>

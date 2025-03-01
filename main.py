@@ -108,6 +108,8 @@ def home():
         if role == 'admin':
             return redirect(url_for('admin', name=session.get('user_name')))
         elif role == 'student':
+            print("Session name:", session.get('user_name'))
+            print("Session roll_no:", session.get('roll_no'))
             return redirect(url_for('student', name=session.get('user_name')))
         elif role == 'teacher':
             return redirect(url_for('teacher', name=session.get('user_name')))
@@ -169,6 +171,9 @@ def login():
                 session['logged_in'] = True
                 session['user_role'] = 'student'
                 session['user_name'] = student.first_name
+                session['roll_no'] = student.roll_no
+                print(f"This is fetched from table: {student.roll_no}")
+                print(f"session['roll_no']{session['roll_no']}")
                 return redirect(url_for('student', name=student.first_name))
             else:
                 flash("Incorrect password.", "danger")
@@ -248,11 +253,15 @@ def student(name):
         flash('Routine not found.', category='danger')
         return redirect(url_for('home'))
 
+    attendance_details = StudentAttendance.query.filter_by(roll_no= student.roll_no).all()
+    #is a attendance_details for the student logged in
+
     return render_template('student_dashboard.html',
-                           name=name,
-                           roll_no=student.roll_no,
-                           course=routines[0].p1,
-                           routines=routines,
+                           attendance_details = attendance_details,
+                           # name=name,
+                           # roll_no=student.roll_no,
+                           # course=routines[0].p1,
+                           # routines=routines,
                            # routine=routine,  # Pass the routine data to the template
                            logged_in=session.get('logged_in', False))
 
@@ -262,22 +271,14 @@ def teacher(name):
     if session.get('user_role') != 'teacher':
         flash('Your are not authorized to access this page.', category='danger')
         return redirect(url_for('home'))
-    return render_template('teacher_dashboard.html', name=name, logged_in=session.get('logged_in', False))
 
+    teacher = Ad_teacher.query.filter_by(first_name = name).first()
+    uid = teacher.uid
 
-
-
-
-
-
+    attendance_details = TeacherAttendance.query.filter_by(teacher_uid = uid).all()
+    return render_template('teacher_dashboard.html', name=name, attendance_details=attendance_details, logged_in=session.get('logged_in', False))
 
 #ADD teacher
-
-
-
-
-
-
 
 
 
@@ -473,6 +474,11 @@ def add_course(name):
         else:
             course_id = "C1"
 
+
+        course= Course_details.query.filter_by(course = course_name, teacherid=teacher.uid, classid=class_id)
+        if course:
+            flash('Course for the teacher and faculty already exists.', 'warning')
+            return redirect(url_for('add_course', name=name))
         # Save to Database
         new_course = Course_details(
             course=course_name,
@@ -484,6 +490,22 @@ def add_course(name):
         db.session.add(new_course)
         db.session.commit()
         flash("Course added successfully!", 'success')
+
+        # setting up teacher attendance table
+
+        # Fetch all courses assigned to this teacher from Course_details
+        courses = db.session.execute(
+            db.select(Course_details.course).where(Course_details.teacherid == teacher.uid)).scalars().all()
+
+        # Update teacher_attendance table for each course
+        if courses:
+            for course_id in courses:
+                new_attendance_entry = TeacherAttendance(teacher_uid=teacher.uid, course_id=course_name, total_attendance=0)
+                db.session.add(new_attendance_entry)
+
+            db.session.commit()
+            flash("Teacher added and attendance table updated successfully!", "success")
+
         return redirect(url_for('admin', name=name))
 
     return render_template('add_course.html', admin_name=name)
@@ -603,19 +625,22 @@ def add_teacher(name):
                 last_name = request.form.get('last_name')
                 email = request.form.get('email')
                 password = request.form.get('password')
-                #face
 
+                # Check if RFID already exists
                 existing_teacher = db.session.execute(db.select(Ad_teacher).where(Ad_teacher.uid == nuid)).scalars().first()
                 if existing_teacher:
-                    flash(' This RFID already exists!', "danger")
+                    flash('This RFID already exists!', "danger")
                     return redirect(url_for('admin', name=session['user_name']))
 
+                # Hash password
                 hashed_password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=8)
-                new_teacher = Ad_teacher(uid=nuid, first_name=first_name, last_name=last_name, email=email, password=hashed_password)
 
+                # Add teacher to Ad_teacher table
+                new_teacher = Ad_teacher(uid=nuid, first_name=first_name, last_name=last_name, email=email, password=hashed_password)
                 db.session.add(new_teacher)
                 db.session.commit()
-                flash("Teacher RFID  added successfully!", "success")
+                flash('Teacher Added Successfully', 'success')
+
 
 
             return redirect(url_for('admin', name=session['user_name']))
@@ -624,7 +649,8 @@ def add_teacher(name):
             db.session.rollback()
             flash(f"Error: {str(e)}", "danger")
 
-    return render_template('add_teacher.html', admin_name = session['user_name'], logged_in=session.get('logged_in', False))
+    return render_template('add_teacher.html', admin_name=session['user_name'], logged_in=session.get('logged_in', False))
+
 
 
 @app.route('/admin/teachers')
@@ -693,6 +719,61 @@ def add_student(name):
                 db.session.add(new_student)
                 db.session.commit()
                 flash("Student RFID mapping added successfully!", "success")
+
+               #------------------- # updating in student attendance table------------------------------
+
+                # Fetch the last added student from Ad_student table
+                student = Ad_student.query.filter_by(campus_rollno=campus_rollno).first()
+                if student:
+                    campus_rollno = student.campus_rollno
+                    print(
+                        f"Processing student: {student.first_name} {student.last_name}, Campus Roll No: {campus_rollno}")
+
+                    # Fetch faculty and sem from Student table
+                    stu = Student.query.filter_by(roll_no=campus_rollno).first()
+                    if stu:
+                        faculty = stu.faculty
+                        sem = stu.sem
+
+                        if faculty is not None and sem is not None:
+                            routine_id = str(faculty) + str(sem)
+                            print(f"Routine ID: {routine_id}")
+                        else:
+                            print("Faculty or Semester is missing")
+                            return redirect(url_for('admin', name=session['user_name']))
+                        print(type(faculty))
+                        print(type(sem))
+
+
+                        # Fetch routine rows that match the routine_id prefix
+                        routines = db.session.execute(
+                            db.select(Routine).where(Routine.rid.like(f'{routine_id}%'))).scalars().all()
+                        unique_courses = set()
+
+                        # Loop through all the routine rows and collect unique course values
+                        if routines:
+                            for routine in routines:
+                                for column in Routine.__table__.columns:
+                                    if column.name.startswith("p"):
+                                        course = getattr(routine, column.name)
+                                        if course and '(' in course:
+                                            course = course.split('(')[0]  # Extract course name before bracket
+                                            unique_courses.add(course)
+
+                            # Insert all unique courses into StudentAttendance table with total attendance initialized to 0
+                            for course in unique_courses:
+                                new_attendance = StudentAttendance(roll_no=campus_rollno, courseid_taken=course,
+                                                                   total_attendance=0)
+                                db.session.add(new_attendance)
+                            db.session.commit()
+                            print(f"Attendance records added for {student.first_name} {student.last_name}")
+                        else:
+                            print("No routine found for this student")
+                    else:
+                        print("Student details not found in Student table")
+                else:
+                    print("No student found in Ad_student table")
+
 
         except Exception as e:
             db.session.rollback()
@@ -810,65 +891,66 @@ def receive_rfid():
     if uid:
         print(f"Received UID: {uid}")
 
-
         # Fetch UID from Database
         student = Ad_student.query.filter_by(uid=uid).first()
 
-
         if student:
-            return jsonify({"message": "UID Matched", "status": "success"})
-            print(f'update attendance of {student.first_name}')
+            print(f'Update attendance of {student.first_name}')
             campus_rollno = student.campus_rollno
-            # face_embeddings = student.face_embeddings
 
-            # query Student table to fetch sem and faculty to get portion of routineid
-            stu = Student.query.filter_by(roll_no = campus_rollno).first()
+            # Query Student table
+            stu = Student.query.filter_by(roll_no=campus_rollno).first()
+            if not stu:
+                return jsonify({"message": "Student Not Found in Student Table", "status": "failed"})
+
             faculty = stu.faculty
             sem = stu.sem
             routine_id = faculty + sem
 
-            #query routine table to get all the rows with the routineid
-            # list of routine rows that has rid = routine_id + -----
-            # routine = Routine.query.filter(Routine.rid.like(f'{routine_id}%')).all()
+            # Fetch Routine
+            routines = Routine.query.filter(Routine.rid.like(f'{routine_id}%')).all()
 
-
-            for index in range(len(timestamps)):
-               time_in_range = is_time_in_range(timestamps[index], timestamps[index+1])
-               if time_in_range:
-                   for (period,start) in period_mapping.items():
-                        if start == timestamps[index]:
-                            ongoing_period = period
-                            break
-               else:
-                   print('No period now!')
-
-            today = today = datetime.now().strftime('%A')
+            today = datetime.now().strftime('%A')
             todays_routine = Routine.query.filter(Routine.rid.like(f'{routine_id}%'), Routine.day == today).first()
-            print("todays routine:", todays_routine)
+            print("Today's Routine:", todays_routine)
 
             if todays_routine:
-                ongoing_course = getattr(todays_routine, ongoing_period)
+                for index in range(len(timestamps) - 1):
+                    if is_time_in_range(timestamps[index], timestamps[index + 1]):
+                        ongoing_period = [period for period, start in period_mapping.items() if start == timestamps[index]][0]
+                        ongoing_course = getattr(todays_routine, ongoing_period)
 
+                        if ongoing_course:
+                            ongoing_course_cleaned = ongoing_course.split('(')[0] if '(' in ongoing_course else ongoing_course
+
+                            # Attendance Update
+                            attendance_row = StudentAttendance.query.filter_by(roll_no=campus_rollno, courseid_taken=ongoing_course_cleaned).first()
+                            if attendance_row:
+                                attendance_row.total_attendance += 1
+                                db.session.commit()
+                                print(f"Attendance Updated for {student.first_name} in {ongoing_course_cleaned}")
+                            else:
+                                print("Attendance Row Not Found")
+                        else:
+                            print("No Course Found for Ongoing Period")
+                        break
+                else:
+                    print("No Period Now!")
             else:
-                print('Update Routine')
+                print("Routine Not Found")
 
+            return jsonify({"message": "UID Matched", "status": "success"})
 
-            # now  update the student attendance table by increasing a attendance count for a student in a course taken
-            StudentAttendance.roll_no = campus_rollno
-            StudentAttendance.courseid_taken = ongoing_course.split('(')[0]
-            attendace_row = StudentAttendance.query.filter_by(roll_no == campus_rollno, courseid_taken == ongoing_course.split('(')[0] )
-            attendace_row.total_attendance += 1
-
-
-    else:
+        else:
             return jsonify({"message": "UID Not Found", "status": "failed"})
 
     return jsonify({"message": "Invalid Request", "status": "error"})
-    data = request.json
-    uid = data.get("uid")
+
 
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host='192.168.1.64', port=5000)
+    app.run(debug=True,
+            #host='192.168.1.64',
+            port=5000)
 
