@@ -328,9 +328,9 @@ def update_or_preview(name):
 
 @app.route('/admin/<name>/update_routine/<faculty>/<sem>', methods=['POST', 'GET'])
 def update(name, faculty, sem):
-    from_timestamps = ['01:00 AM', '10:45 AM', '11:30 AM', '12:15 PM',
+    from_timestamps = ['12:00 AM', '12:45 AM', '11:30 AM', '12:15 PM',
                        '01:00 PM', '01:45 PM', '02:30 PM', '03:15 PM']
-    to_timestamps = ['02:45 AM', '11:30 AM', '12:15 PM', '01:00 PM',
+    to_timestamps = ['12:45 AM', '11:30 AM', '12:15 PM', '01:00 PM',
                      '01:45 PM', '02:30 PM', '03:15 PM', '04:00 PM']
 
     if not session.get('logged_in'):
@@ -475,7 +475,9 @@ def add_course(name):
             course_id = "C1"
 
 
-        course= Course_details.query.filter_by(course = course_name, teacherid=teacher.uid, classid=class_id)
+        course= Course_details.query.filter_by(course = course_name, teacherid=teacher.uid, classid=class_id).first()
+        print(course)
+        #print(f"this is from course_details table matching from the form:{ course.teacherid, course.classid}")
         if course:
             flash('Course for the teacher and faculty already exists.', 'warning')
             return redirect(url_for('add_course', name=name))
@@ -893,6 +895,7 @@ def receive_rfid():
 
         # Fetch UID from Database
         student = Ad_student.query.filter_by(uid=uid).first()
+        teacher = Ad_teacher.query.filter_by(uid=uid).first()
 
         if student:
             print(f'Update attendance of {student.first_name}')
@@ -941,6 +944,67 @@ def receive_rfid():
 
             return jsonify({"message": "UID Matched", "status": "success"})
 
+        elif teacher:
+            print(teacher.first_name)
+            # update teacher attendance
+            # query routine table for day = today and time= time.now() and get all the courses going on
+            # query Course_details with all the coursenames that are fetched
+            # and among them select the row that has (teacherid = uid)
+            # from that row get the value of attribute 'classid'
+            # classid = something + a number something= faculty and number = sem
+            #  so get course , classid and teacherid
+            # update the total_attendance in TeacherAttendance for that (teacher_uid = uid, course_id = course)
+            print(f"Teacher detected: {teacher.first_name}")
+
+            # Get today's day
+            today = datetime.now().strftime('%A')
+            print("Today is:", today)
+
+            # Get ongoing periods
+            for index in range(len(timestamps) - 1):
+                if is_time_in_range(timestamps[index], timestamps[index + 1]):
+                    ongoing_period = [period for period, start in period_mapping.items() if start == timestamps[index]][
+                        0]
+                    print("Ongoing Period:", ongoing_period)
+
+                    # Fetch All Routines where Teacher is Assigned
+                    ongoing_routines = Routine.query.filter_by(day=today).all()
+
+                    # Check which routine matches the teacher's course
+                    for routine in ongoing_routines:
+                        course_name = getattr(routine, ongoing_period)
+                        if course_name:
+                            course_cleaned = course_name.split('(')[0] if '(' in course_name else course_name
+
+                            # Match Teacher's Course from Course_details
+                            teacher_course = Course_details.query.filter_by(courseid=course_cleaned,
+                                                                            teacherid=teacher.uid).first()
+
+                            if teacher_course:
+                                print(f"Teacher {teacher.first_name} is taking {course_cleaned}")
+
+                                # Update TeacherAttendance
+                                attendance_row = TeacherAttendance.query.filter_by(teacher_uid=teacher.uid,
+                                                                                   course_id=course_cleaned).first()
+                                if attendance_row:
+                                    attendance_row.total_attendance += 1
+                                    db.session.commit()
+                                    print(f"Attendance Updated for {teacher.first_name} in {course_cleaned}")
+                                else:
+                                    print("No Attendance Row Found, Creating New Row")
+                                    new_attendance = TeacherAttendance(teacher_uid=teacher.uid,
+                                                                       course_id=course_cleaned, total_attendance=1)
+                                    db.session.add(new_attendance)
+                                    db.session.commit()
+                                return jsonify({"message": "Teacher Attendance Updated", "status": "success"})
+                            else:
+                                print(f"No Course Found for {teacher.first_name} in {course_cleaned}")
+
+                    break
+            else:
+                print("No Period Now for Teacher")
+
+            return jsonify({"message": "UID Matched", "status": "success"})
         else:
             return jsonify({"message": "UID Not Found", "status": "failed"})
 
@@ -951,6 +1015,6 @@ def receive_rfid():
 
 if __name__ == "__main__":
     app.run(debug=True,
-            #host='192.168.1.64',
+            host='192.168.1.78',
             port=5000)
 
