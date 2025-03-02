@@ -76,19 +76,19 @@
             <div class="col-md-4 mb-4">
                 <div class="stats-card bg-primary text-white p-3 rounded">
                     <h5>Total Students</h5>
-                    <h2>1,234</h2>
+                    <h2>{{ student_count }}</h2>
                 </div>
             </div>
             <div class="col-md-4 mb-4">
                 <div class="stats-card bg-success text-white p-3 rounded">
                     <h5>Total Teachers</h5>
-                    <h2>45</h2>
+                    <h2>{{ teacher_count }}</h2>
                 </div>
             </div>
             <div class="col-md-4 mb-4">
                 <div class="stats-card bg-info text-white p-3 rounded">
                     <h5>Today's Attendance</h5>
-                    <h2>89%</h2>
+                    <h2>{{ attendance_count }}</h2>
                 </div>
             </div>
         </div>
@@ -104,16 +104,14 @@
                         <tr>
                             <th>Student ID</th>
                             <th>Name</th>
-                            <th>Faculty</th>
                             <th>Time</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>PUR078BEI025</td>
-                            <td>Prayag Kharel</td>
-                            <td>BEI</td>
-                            <td>10:00 AM</td>
+                            <td>{{ uid_scanned }}</td>
+                            <td>{{ first_name }} {{ last_name }}</td>
+                            <td>{{ last_time_scanned }}</td>
                         </tr>
                     </tbody>
                 </table>

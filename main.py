@@ -1,3 +1,5 @@
+HOST = '192.168.1.64'
+
 from flask import Flask, render_template, request, url_for, redirect, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
@@ -88,6 +90,15 @@ class TeacherAttendance(db.Model):
     teacher_uid: Mapped[str] = mapped_column(String(100), nullable=False)
     course_id: Mapped[str] = mapped_column(String(100), nullable=False)
     total_attendance: Mapped[int] = mapped_column(Integer, nullable=True)
+
+
+class AttendanceTime(db.Model):
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    uid: Mapped[str] = mapped_column(String(100), nullable= False)
+    timestamp: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    def __repr__(self):
+        return f"<AttendanceTime {self.uid} - {self.timestamp}>"
 
 
 with app.app_context():
@@ -222,7 +233,58 @@ def admin(name):
     if session.get('user_role') != 'admin':
         flash("You are not authorized to access this page.", "danger")
         return redirect(url_for('home'))
-    return render_template('admin_dashboard.html', name=name, logged_in=session.get('logged_in', False))
+
+    # Count Students
+    student_count = Student.query.count()
+    print("Number of Students:", student_count)
+
+    # Count Teachers
+    teacher_count = Ad_teacher.query.count()
+    print("Number of Teachers:", teacher_count)
+
+    # Count Today's Attendance
+    attendance_count = AttendanceTime.query.count()
+    print("Number of attendances:", attendance_count)
+
+    # Fetch the most recent scanned UID and Timestamp
+    recent_scan = AttendanceTime.query.order_by(AttendanceTime.timestamp.desc()).first()
+
+    if recent_scan:
+        print("Recently Scanned UID:", recent_scan.uid)
+        print("Timestamp:", recent_scan.timestamp)
+        uid_scanned = recent_scan.uid
+        last_time_scanned = recent_scan.timestamp
+
+        student = Ad_student.query.filter_by(uid = uid_scanned).first()
+        teacher = Ad_teacher.query.filter_by(uid = uid_scanned).first()
+
+        if student:
+            first_name = student.first_name
+            last_name = student.last_name
+        else:
+            first_name = teacher.first_name
+            last_name = teacher.last_name
+
+
+    else:
+        print("No Attendance Records Found")
+        first_name = 'None'
+        last_name = 'None'
+        uid_scanned = 'None'
+        last_time_scanned = 'None'
+
+
+
+    return render_template('admin_dashboard.html',
+                           name=name,
+                           student_count = student_count,
+                           teacher_count = teacher_count,
+                           attendance_count = attendance_count,
+                           uid_scanned = uid_scanned,
+                           first_name = first_name,
+                           last_name = last_name,
+                           last_time_scanned = last_time_scanned,
+                           logged_in=session.get('logged_in', False))
 
 
 @app.route('/student/<name>')
@@ -328,8 +390,8 @@ def update_or_preview(name):
 
 @app.route('/admin/<name>/update_routine/<faculty>/<sem>', methods=['POST', 'GET'])
 def update(name, faculty, sem):
-    from_timestamps = ['01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00']
-    to_timestamps = ['02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00']
+    from_timestamps = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']
+    to_timestamps = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00']
 
     if not session.get('logged_in'):
         return redirect(url_for('login'))
@@ -547,9 +609,6 @@ def course_details(classid, course_name):
 @app.route('/admin/courses', methods=['GET'])
 def get_courses():
 
-    # if 'user_name' not in session or session['user_name'] != name:
-    #     flash("Unauthorized Access", "danger")
-    #     return redirect(url_for('login'))
     if session.get('user_role', '') != 'admin':
         flash("Unauthorized access!", "danger")
         return redirect(url_for('home'))
@@ -572,32 +631,6 @@ def get_courses():
 
 #-----------------------Course Management Section END-------------------------------------------------
 
-
-# @app.route('/get_class_ids', methods=['GET'])
-# def get_class_ids():
-#     course_name = request.args.get('course_name')
-#     class_ids = [
-#         c.classid for c in Course_details.query.filter_by(course=course_name).all()  # Fixed
-#     ] if course_name else []
-#     return jsonify({"class_ids": class_ids})
-
-
-# @app.route('/get_teacher', methods=['POST'])
-# def get_teacher():
-#     data = request.get_json()
-#     course = Course_details.query.filter_by(  # Fixed
-#         course=data.get('course_name'),
-#         classid=data.get('class_id')
-#     ).first()
-#
-#     if not course:
-#         return jsonify({"firstname": "", "lastname": ""})
-#
-#     teacher = Ad_teacher.query.get(course.teacherid)
-#     return jsonify({
-#         "firstname": teacher.first_name if teacher else "",
-#         "lastname": teacher.last_name if teacher else ""
-#     })
 
 
 #---------------------TEACHER MANAGEMENT SECTION START---------------------------------------------
@@ -863,25 +896,43 @@ def logout():
 # -----------------------------RFID INTEGRATION------------------------
 
 
-# def is_time_in_range(start, end):
-#     # Convert 12-hour time strings to datetime objects
-#     start = datetime.strptime(start, "%I:%M %p")
-#     end = datetime.strptime(end, "%I:%M %p")
-#     now = datetime.now().strftime("%I:%M %p")
-
-def is_time_in_range(start, end):
+def is_time_in_range(start, end, now):
     now = datetime.now().time()  # Keep 'now' as time only
     start = datetime.strptime(start, "%H:%M").time()  # Convert start to time
     end = datetime.strptime(end, "%H:%M").time()  # Convert end to time
 
+
     return start <= now <= end
 
+
+# to insert timestamp into the database
+def record_attendance_time(uid):
+    print(f'To add in AttendanceTime table: {uid}')
+    # Get the current timestamp in 24-hour format (HH:MM)
+    current_time = datetime.now().strftime('%H:%M')
+
+    # Insert the uid and timestamp into the AttendanceTime table
+    attendance_time = AttendanceTime(uid=uid, timestamp=current_time)
+    db.session.add(attendance_time)
+    db.session.commit()
+    print(f"Attendance recorded for UID {uid} at {current_time}")
+
+def check_attendance(uid, period_start_time, period_end_time):
+    attendance_time_record = AttendanceTime.query.filter_by(uid=uid).order_by(AttendanceTime.timestamp.desc()).first()
+    if attendance_time_record:
+        if is_time_in_range(period_start_time, period_end_time, attendance_time_record.timestamp):
+            return False
+        else:
+            return True
+    else:
+        return True
 
 
 @app.route('/api/rfid', methods=['POST'])
 def receive_rfid():
     data = request.json
     uid = data.get("uid")  # Extract the 'uid' field from the JSON data
+    now = datetime.now().strftime('%H:%M')
 
     if uid:
         print(f"Received UID: {uid}")
@@ -913,7 +964,7 @@ def receive_rfid():
 
             if todays_routine:
                 for index in range(len(timestamps) - 1):
-                    if is_time_in_range(timestamps[index], timestamps[index + 1]):
+                    if is_time_in_range(timestamps[index], timestamps[index + 1], now):
                         ongoing_period = [period for start, period in period_mapping.items() if start == timestamps[index]][0]
                         ongoing_course = getattr(todays_routine, ongoing_period)
 
@@ -923,17 +974,22 @@ def receive_rfid():
 
                             # Attendance Update
                             attendance_row = StudentAttendance.query.filter_by(roll_no=campus_rollno, courseid_taken=ongoing_course_cleaned).first()
+                            # if attendance_row and check_attendance(uid = student.uid,
+                            #                                        period_start_time = timestamps[period_mapping[ongoing_period][0]],
+                            #                                        period_end_time = timestamps[period_mapping[ongoing_period][1]]
+                            #                                        ):
                             if attendance_row:
                                 attendance_row.total_attendance += 1
                                 db.session.commit()
+                                record_attendance_time(student.uid)  #changed
                                 print(f"Attendance Updated for {student.first_name} in {ongoing_course_cleaned} :{attendance_row.total_attendance}")
                             else:
-                                print("Attendance Row Not Found")
+                                print("Attendance Row Not Found or attendance already recorded.")
                         else:
                             print("No Course Found for Ongoing Period")
                         break
-                else:
-                    print("No Period Now!")
+                    else:
+                        print("No Period Now!")
             else:
                 print("Routine Not Found")
 
@@ -957,7 +1013,7 @@ def receive_rfid():
 
             # Get ongoing periods
             for index in range(len(timestamps) - 1):
-                if is_time_in_range(timestamps[index], timestamps[index + 1]):
+                if is_time_in_range(timestamps[index], timestamps[index + 1], now):
                     ongoing_period = [period for start, period in period_mapping.items() if start == timestamps[index]][
                         0]
                     print("Ongoing Period:", ongoing_period)
@@ -970,7 +1026,7 @@ def receive_rfid():
                         course_name = getattr(routine, ongoing_period)
                         if course_name:
                             course_cleaned = course_name.split('(')[0][:-1] if '(' in course_name else course_name
-
+                            print(f'ongoing course: {course_cleaned}')
                             # Match Teacher's Course from Course_details
                             teacher_course = Course_details.query.filter_by(course=course_cleaned,
                                                                             teacherid=teacher.uid).first()
@@ -982,16 +1038,22 @@ def receive_rfid():
                                 # Update TeacherAttendance
                                 attendance_row = TeacherAttendance.query.filter_by(teacher_uid=teacher.uid,
                                                                                    course_id=course_cleaned).first()
+                                # if attendance_row and check_attendance(uid = student.uid,
+                                #                                    period_start_time = timestamps[period_mapping[ongoing_period][0]],
+                                #                                    period_end_time = timestamps[period_mapping[ongoing_period][1]]
+                                #                                    ):
                                 if attendance_row:
                                     attendance_row.total_attendance += 1
                                     db.session.commit()
+                                    record_attendance_time(teacher.uid)
                                     print(f"Attendance Updated for {teacher.first_name} in {course_cleaned}")
                                 else:
-                                    print("No Attendance Row Found, Creating New Row")
+                                    print("No Attendance Row Found, Creating New Row or attendance already recorded")
                                     new_attendance = TeacherAttendance(teacher_uid=teacher.uid,
                                                                        course_id=course_cleaned, total_attendance=1)
                                     db.session.add(new_attendance)
                                     db.session.commit()
+                                    record_attendance_time(teacher.uid)   #changed
                                 return jsonify({"message": "Teacher Attendance Updated", "status": "success"})
                             else:
                                 print(f"No Course Found for {teacher.first_name} in {course_cleaned}")
@@ -1013,6 +1075,6 @@ def receive_rfid():
 
 if __name__ == "__main__":
     app.run(debug=True,
-            host='192.168.1.78',
-            port=5000)
+            host= '192.168.1.64',
+            port=4000)
 
